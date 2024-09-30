@@ -74,6 +74,9 @@ struct Node {
     Node* find_next();
     Node* find_nowarning(std::string  name);
     Node* find(std::vector<std::string> names);
+    
+    bool DFS(std::function<bool(Node*)> cb, int max_depth = 0);
+    void BFS(std::function<bool(Node*)> cb, int max_depth = 0);
 
     uint32_t index();
 
@@ -92,8 +95,6 @@ struct Node {
     virtual std::string type_name() { return type().pretty_name();  }
 
     Node* on(Event event, std::function<void(Node*)> cb = nullptr);
-
-    Node* each_untyped(std::function<Flag(Node*)> cb, int depth = 0);
 
     static inline uint32_t total_uid = 0;
     uint32_t uid = 0;
@@ -191,19 +192,35 @@ struct Node {
     
 
     template <typename U>
-    Flag eachBreak(std::function<Flag(Node*, U*)> cb) { 
-        return each_untyped([&](Node* n) { 
+    void eachBreak(std::function<bool(Node*, U*)> cb, int max_depth = 0) { 
+        
+        BFS([&](Node* n) { 
+            
             U* isa = n->is_a_nowarning<U>(); 
+
             if (isa) 
-                return cb(n,isa); 
-            return (Node*)nullptr;
-        }); 
+                return (bool)cb(n,isa); 
+
+            return true;
+
+        }, max_depth); 
     }
 
     template <typename U>
-    void each(std::function<void(Node*, U*)> cb) { 
+    void each(std::function<void(Node*, U*)> cb, int max_depth = 0) { 
 
-        eachBreak<U>([&](Node* n, U* isa) { cb(n,isa); return Null; });
+        eachBreak<U>([&](Node* n, U* isa) { cb(n,isa); return true; }, max_depth);
+
+    }
+    
+    template <typename U>
+    int count() { 
+
+        int total = 0;
+
+        eachBreak<U>([&](Node* n, U* isa) { total++; return true; });
+
+        return total;
 
     }
 

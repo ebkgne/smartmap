@@ -1,6 +1,7 @@
 #include "node.hpp"
 #include "utils.hpp"
 
+#include <queue>
 #include "editor.hpp"
 
 Node::Node(void* ptr, TypeIndex type, bool owned) : void_ptr(ptr), stored_type(type), owned(owned) {
@@ -64,59 +65,31 @@ Node::~Node() {
 
 }
 
-static bool find_obscure(std::vector<std::string>& names, Node* n,int max, int depth, std::vector<Node*>& find_list) {
-
-    bool out = false;
-        
-    if (max == depth) {
-
-        out = true;
-
-        auto curr = n;
-
-        for (int i = 0; i < names.size(); i++) {
-
-            Node* found = nullptr;
-            for (auto x : curr->childrens)
-                if (x->name() == names[i]) {
-                    found = x;
-                    break;
-                }
-
-            if (!found) {
-
-                curr = nullptr;
-
-                break;
-
-            }
-
-            curr = found;
-            
-        }
-
-        if (curr)
-            ADD_UNIQUE<Node*>(find_list, curr);
-
-    }
-
-    for (auto x : n->childrens)
-      if (find_obscure(names, x, max, depth+1, find_list))
-        out = true;
-    
-    return out;
-  
-} 
-
 Node* Node::find(std::vector<std::string> names) {
 
     find_list.clear();
-    find_pos = 0;
 
-    int i = 0;
-    while(true) 
-        if (!find_obscure(names, this, i++, 0,find_list)) 
-            break;
+    BFS([&](Node* n){
+
+        int i = names.size()-1;
+
+        auto curr = n;
+
+        while (curr && curr->name() == names[i]) {
+
+            i--;
+            
+            curr = curr->parent();
+
+        }
+
+        if (i<0)
+            ADD_UNIQUE<Node*>(find_list, n);
+
+        return true;
+
+    });
+
     return find_next();
 
 }
@@ -152,6 +125,46 @@ Node* Node::active(bool value) {
     return this; 
 }
 
+bool Node::DFS(std::function<bool(Node*)> cb, int max_depth) {
+
+    for (auto c : this->childrens) 
+        if (max_depth != 0) {
+
+            if (!cb(this))
+                return false;
+
+            if (!c->DFS(cb, max_depth-1))
+                return false;
+        
+        }
+        
+    return true;
+
+}
+
+void Node::BFS(std::function<bool(Node*)> cb, int max_depth) {
+
+    std::queue<std::pair<Node*, int>> q;
+    q.push({this, 0});
+
+    while (!q.empty()) {
+
+        auto current = q.front().first;
+        int depth = q.front().second;
+        q.pop();
+
+        if (max_depth && depth > max_depth) 
+            return;
+        
+        if (!cb(current))
+            return;
+
+        for (auto child : current->childrens) 
+            q.push({child, depth + 1});
+
+    }
+
+}
 
 Node* Node::top() { auto top = this; while(top->parent()) { top = top->parent(); } return top; }
 
@@ -337,31 +350,6 @@ void Node::update() {
 }
 
 
-Node* Node::each_untyped(std::function<Node*(Node*)> cb, int depth) { 
-    
-    Node* out = nullptr;
-
-    for (auto c : childrens) {
-
-        if (depth != 0){
-        
-            out = c->each_untyped(cb, depth-1);
-
-            if (out == Node::Break) 
-                return Node::Break;
-        
-        }
-        
-        out = cb(this);
-
-        if (out == Node::Break) 
-            return Node::Break;
-        
-    }
-    
-    return out;  
-
-}
 
 bool Node::remove(Node *child) {
 

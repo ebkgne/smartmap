@@ -10,71 +10,74 @@
 #include "node.hpp"
 #include "editor.hpp"
 
+struct Truc {
 
-
-struct Nonode {
-
-    std::string name;
-    std::vector<Nonode*> childrens;
-
-    Nonode* add(std::string name) {
-
-        childrens.emplace_back(new Nonode{name});
-        return childrens.back();
-
-    }
+    // Truc (std::string name_v) :name_v(name_v) {}
+    
+    std::string name_v;
+    std::string name() {return name_v; }
 };
 
-void eachDF(std::vector<Nonode*> bucketin, std::function<bool(Nonode*)> cb, int depth = -1) {
-    
-    for (auto n : bucketin)
-        if (!cb(n))
-            return;
-
-    std::vector<Nonode*> bucketout;
-
-    for (auto n : bucketin) 
-        for (auto c : n->childrens) 
-            bucketout.push_back(c);
-    
-    if (bucketout.size() && depth != 0)
-        eachDF(bucketout, cb, depth-1);
-
-}
 
 int main() {
 
-    Nonode tree{"tree"};
+    Node tree{"tree"};
 
-    auto branhca = tree.add("brancha");
+    NODE<Truc>::allow<Truc>();
 
-    auto a1 = branhca->add("a1");
+    auto branhca = tree.addOwnr<Truc>();
+    branhca->name("brancha");
 
-    auto a2 = a1->add("a2");
-    auto a3 = a2->add("a3");
+    auto a1 = branhca->addOwnr<Truc>();
+    a1->name("a1");
 
-    auto branhcb = tree.add("branchb");
+    auto a2 = a1->addOwnr<Truc>();
+    a2->name("a2");
+    auto a3 = a2->addOwnr<Truc>();
+    a3->name("a3");
 
-    auto b1 = branhcb->add("b1");
+    auto branhcb = tree.addOwnr<Truc>();
+    branhcb->name("branchb");
 
-    auto b2 = b1->add("b2");
-    auto b3 = b2->add("b3");
+    auto b1 = branhcb->addOwnr<Truc>();
+    b1->name("b1");
+
+    auto b2 = b1->addOwnr<Truc>();
+    b2->name("b2");
+    auto b3 = b2->addOwnr<Truc>();
+    b3->name("b3");
 
     std::cout << "================================= \n";
 
-    eachDF({&tree}, [](Nonode* n){ 
+    std::cout << tree.count<Truc>() << std::endl;
+
+    tree.eachBreak<Truc>([](auto n, auto nn){ 
         
-        // if (n.name == "a1"){
-        //     std::cout << n.name << " FOUND!\n";
-        //     return false;
-        // }
+        if (n->name() == "a1"){
+            std::cout << n->name() << " FOUND!\n";
+            return false;
+        }
         
-        std::cout << n->name << "!\n";
+        std::cout << n->name() << "!\n";
         
         return true; 
 
-    },2);
+    });
 
+    tree.DFS([](auto n){ 
+        
+        if (n->name() == "a1"){
+            std::cout << n->name() << " FOUND!\n";
+            return false;
+        }
+        
+        std::cout << n->name() << "!\n";
+        
+        return true; 
+
+    },0);
+
+    tree.find("brancha::a1::a2");
 
 
 exit(0);
