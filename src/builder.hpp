@@ -35,7 +35,7 @@ struct Builder {
 
     std::string unique(Member* m);
     
-    void build(ShaderProgram* dst = nullptr);
+    void build();
     
     virtual void setup();
 

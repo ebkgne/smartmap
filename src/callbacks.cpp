@@ -131,6 +131,8 @@ void Callbacks::init() {
 
         layer->glsl_layers->eq(layer->vbo.layer_id).set<std::array<float,2>>({(float)layer->fb.texture.width,(float)layer->fb.texture.height});
 
+        NODE<Member>::on_cb[Node::CHANGE](node, &layer->stat);
+    
     });
 
     NODE<Layer>::on(Node::DESTROY, [](Node* node, Layer *layer){ 
@@ -144,6 +146,12 @@ void Callbacks::init() {
         } 
         
     }); 
+
+    NODE<Model>::on(Node::CHANGE, [](Node* node, Model *model) {
+
+        NODE<Member>::on_cb[Node::CHANGE](node, &model->stat);
+
+    });
 
     NODE<Model>::on(Node::DESTROY, [](Node* node, Model *model) {
 
@@ -205,13 +213,14 @@ void Callbacks::init() {
 
         node->parent()->each<DrawCall>([](Node*n, DrawCall* dc){ 
             
-            dc->builder()->build(&dc->shader);
+            dc->builder()->build();
 
             EDITOR::triglist.insert(n);
 
+            dc->vbo.upload();
+
         });
 
-        dc->vbo.upload();
 
     }); 
 

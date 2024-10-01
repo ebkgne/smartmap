@@ -303,7 +303,8 @@ void Editors::init() {
                 if (lay) 
                     BUILDER.vbo = &lay->vbo; 
                 shader->destroy(); 
-                BUILDER.build(shader);
+                BUILDER.shader = shader;
+                BUILDER.build();
                 shader->create(BUILDER.frag(), BUILDER.vert()); 
             }
             

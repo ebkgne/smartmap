@@ -11,10 +11,25 @@
 
 #include "effector.hpp"
 #include "instance.hpp"
+#include "engine.hpp"
 
-Model::Model(File* f, std::string name) : Effectable(name), file(f) {  };
+Model::Model(File* f, std::string name) : Effectable(name), file(f), stat(name) {  };
 
 Model::~Model() { }
+
+void Model::dimensions(uint32_t width, uint32_t height) { 
+
+    if (!width || !height) {
+        engine.static_ubo->remove(stat);
+
+    }else
+        if (!dimensions_v[0] || !dimensions_v[1])
+            engine.static_ubo->add(&stat);
+
+    dimensions_v[0] = width;
+    dimensions_v[1] = height;
+
+}
 
 void Model::convert(File* file, std::string type) {
 

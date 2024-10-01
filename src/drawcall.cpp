@@ -24,6 +24,8 @@ Model* DrawCall::addModel(File* f) {
 
 DrawCall::Builder::Builder(DrawCall* dc) : dc(dc) {
 
+    shader = &dc->shader;
+    vbo = &dc->vbo;
 
 }
 
@@ -55,18 +57,31 @@ std::string DrawCall::Builder::print_layer(Effectable &effectable, std::string p
 
 void DrawCall::Builder::setup() {
 
-    vbo = &dc->vbo;
-
-    // vbo
-
+    // detect if VBO list has changed 
+    bool changed = false;
     for (auto model : dc->models) {
 
-        // addfile or addquad
+        if (dc->last_modified[model->file] != model->file->last_modified) {
+            changed = true;
+            break;
+        }
 
     }
 
+    // if so re upload
+    if (changed) {
 
+        dc->last_modified.clear();
+        vbo->clear();
+
+        for (auto model : dc->models) {
+
+            vbo->addFile(model->file);
+
+
+        }
     
+    }
 
     // shader
 

@@ -19,7 +19,15 @@ struct Modelable : Effectable {
 
 struct Model : Effectable {
 
+    Member stat;
+
     File* file;
+
+    uint32_t dimensions_v[2] = {0,0};
+    
+    uint32_t grid_v[2] = {1,1};
+
+    void dimensions(uint32_t width, uint32_t height);
 
     bool vbo_split_mode = false;
 

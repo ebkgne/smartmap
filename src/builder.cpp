@@ -13,14 +13,25 @@
 
 Builder::Builder() {
 
-    build();
 
 }
 
 
-void Builder::setup() {
+static void addSmallerFirst(Member* m, std::vector<Member*>& v) {
 
-    
+    m = m->ref();
+
+    if (m->isData())
+        return;
+
+    for (auto x : m->members) 
+        addSmallerFirst(x->ref(), v);
+
+    ADD_UNIQUE<Member*>(v, m);
+
+}
+
+void Builder::setup() {
 
 }
 
@@ -31,10 +42,11 @@ std::string Builder::unique(Member* m ) {
     while (true) {
 
         bool found = false;
+        auto lname = lower(name);
 
         for (auto &x : unique_names) 
             
-            if (x.second == name) {
+            if (x.second == lname || x.second == name) {
         
                 name += "0";
                 found = true;
@@ -51,41 +63,28 @@ std::string Builder::unique(Member* m ) {
 
 }
 
-static void addSmallerFirst(Member* m, std::vector<Member*>& v) {
+void Builder::build() {
 
-    m = m->ref();
+    PLOGV << "build";
 
-    if (m->isData())
-        return;
-
-    for (auto x : m->members) 
-        addSmallerFirst(x->ref(), v);
-
-    ADD_UNIQUE<Member*>(v, m);
-
-}
-
-void Builder::build(ShaderProgram* shader) {
+    shader->destroy();
 
     samplers.clear();
+
     effectors_fragment.clear();
     effectors_vertex.clear();
 
-    this->shader = shader;
-    PLOGV << "build";
-
-
-    if (shader) 
-        shader->destroy();
-
-    
-
     header_fragment.clear();
     body_fragment.clear();
+
+    header_common.clear();
     header_vertex.clear();
     body_vertex.clear();
+
     definitions.clear();
+    
     unique_names.clear();
+
     ubos.clear();
 
     setup();
@@ -96,7 +95,7 @@ void Builder::build(ShaderProgram* shader) {
     for (auto m : definitions) 
         unique_names[m] = unique(m);
     
-    header_common = "#version 430 core\n\n";
+    header_common = "#version 430 core\n\n"+header_common;
     
     header_common += layout();
 
@@ -120,8 +119,9 @@ void Builder::build(ShaderProgram* shader) {
         shader->sendUniform(s.second->sampler_name, s.first);
         
         sampler_id++;
-    }
+    } 
 }
+
 
 int Builder::addSampler(Texture* tex, std::string name) {
     

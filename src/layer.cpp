@@ -16,7 +16,8 @@ Layer::Layer(uint16_t width, uint16_t height, std::string name) :
 
     fb((width?width:engine.window.width), 
     (height?height:engine.window.height)), 
-    DrawCall(name)
+    DrawCall(name),
+    stat(name)
     
 {
 
@@ -42,7 +43,9 @@ Layer::Layer(uint16_t width, uint16_t height, std::string name) :
 
     // glsl_layers->eq(vbo.layer_id).set<std::array<float,2>>({(float)width,(float)height});
 
-    // engine.static_ubo->upload();
+    // engine.static_ubo->upload();]
+    stat.add(&globals.layer);
+    engine.static_ubo->add(&stat);
 
 }
 
@@ -357,7 +360,7 @@ void UberLayer::calc_matrice() {
         z++;
     }
 
-    builder()->build(&shader);
+    builder()->build();
 
     engine.static_ubo->upload();
 

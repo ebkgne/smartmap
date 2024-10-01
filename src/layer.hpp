@@ -10,6 +10,8 @@
 
 struct Layer : DrawCall {
 
+    Member stat;
+
     struct Feedback : Effector {
 
         Layer* layer;

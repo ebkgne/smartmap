@@ -38,16 +38,7 @@ void VBO::destroy() {
 
     init = false;
 
-
-    if (vao) {
-
-        glBindVertexArray(vao);
-
-        for (int i = 0 ; i < enabled_attrs; i++) glDisableVertexAttribArray(i);
-
-        glDeleteVertexArrays(1, &vao);
-
-    }
+    clear();
 
     glDeleteBuffers(1, &vbo);
 
@@ -76,13 +67,28 @@ VBO::~VBO()  {
 
 }
 
-void VBO::reset() {
+void VBO::clear() {
 
     vertices.quantity(0);
 
     indices.quantity(0);
+    
+    if (vao) {
+
+        glBindVertexArray(vao);
+
+        for (int i = 0 ; i < enabled_attrs; i++) glDisableVertexAttribArray(i);
+
+        glDeleteVertexArrays(1, &vao);
+
+    }
+
+}
+
+void VBO::reset() {
 
     upload();
+
 
 }
 

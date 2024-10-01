@@ -4,6 +4,7 @@
 #include "shader.hpp"
 #include "model.hpp"
 #include "builder.hpp"
+#include <cstdint>
 ;
 
 struct DrawCall : Modelable {
@@ -38,5 +39,7 @@ struct DrawCall : Modelable {
         std::string print_layer(Effectable &effectable,std::string prepend ,std::string instance, std::string ar = "");
 
     };
+
+    std::map<File*, int64_t> last_modified;
     
 };

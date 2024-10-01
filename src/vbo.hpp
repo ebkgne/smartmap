@@ -33,6 +33,7 @@ struct VBO : Member {
     void create();
     void destroy();
     void reset();
+    void clear();
 
     void draw(int count = 1);
 
