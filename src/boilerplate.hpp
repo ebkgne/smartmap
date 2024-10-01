@@ -153,7 +153,7 @@ struct BoilerQuad {
 
     }
 
-    BoilerQuad(float r) {
+    BoilerQuad(float r = 1) {
 
         vertices =  { {-r, -r, 0, 1}, {r, -r, 1, 1}, {-r, r, 0, 0}, {r, r, 1, 0} };
 

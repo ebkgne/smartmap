@@ -217,10 +217,10 @@ void Callbacks::init() {
 
             EDITOR::triglist.insert(n);
 
-            dc->vbo.upload();
 
         });
 
+        dc->vbo.upload();
 
     }); 
 

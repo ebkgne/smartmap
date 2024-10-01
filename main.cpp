@@ -10,11 +10,7 @@
 #include "node.hpp"
 #include "editor.hpp"
 
-
-
-
 int main() {
-
 
     logger.cout(Sev::warning);
 
@@ -31,43 +27,39 @@ int main() {
     auto quad_ = engine.tree->find("quad");
 
 
-    struct Quad : File { Quad() : File("quad2.obj", "o quad2\n\nv -.1 -.1 0\nv .1 -.1 0\nv -.1 .1 0\nv .1 .1 0\n\nvt 0 0\nvt .1 0\nvt 0 .1\nvt .1 .1\n\nf 1/1 2/2 3/3 \nf 2/2 3/3 4/4") { } } quad;
-    NODE<Quad>::is_a<File>();
-    
-    auto quad2_ = engine.tree->addOwnr<Quad>();
     main_->add(quad_);
-    // main_->add(quad2_);
-    // auto lay_ = main_->childrens.back();
-    // auto v1_ = lay_->childrens.back();
-    // v1_->add(argb_);
-    // v1_->add(rectangle_);
-    // auto v2_ = lay_->add(quad_);
-    // v2_->add(argb_);
-    // v2_->add(rectangle_);
-    // engine.gui_v->editors[0].get()->selected = lay_;
-    // engine.gui_v->editors[0].get()->locked = true;
+    auto lay_ = main_->childrens.back();
+    auto v1_ = lay_->childrens.back();
+    v1_->add(argb_);
+    v1_->add(rectangle_);
+    auto v2_ = lay_->add(quad_);
+    v2_->add(argb_);
+    v2_->add(rectangle_);
+    engine.gui_v->editors[0].get()->selected = lay_;
+    engine.gui_v->editors[0].get()->locked = true;
 
 
 
-    // auto ubl_ = engine.tree->find("main")->addOwnr<UberLayer>();
-    // auto ubl = ubl_->is_a<UberLayer>();
+    auto ubl_ = engine.tree->find("main")->addOwnr<UberLayer>();
+    auto ubl = ubl_->is_a<UberLayer>();
 
-    // auto &vl1 = ubl->addLayer(100, 1);
-    // vl1.quantity(5);
-    // auto vl1_ = ubl_->addPtr<UberLayer::VirtualLayer>(&vl1);
-    // vl1_->active(true);
-    // vl1_->add(argb_);
+    auto &vl1 = ubl->addLayer(100, 1);
+    vl1.quantity(5);
+    auto vl1_ = ubl_->addPtr<UberLayer::VirtualLayer>(&vl1);
+    vl1_->active(true);
+    vl1_->add(argb_);
 
-    // auto &vl2 = ubl->addLayer(100, 1);
-    // vl2.quantity(2);
-    // auto vl2_ = ubl_->addPtr<UberLayer::VirtualLayer>(&vl2);
-    // vl2_->active(true);
-    // vl2_->add(argb_);
+    auto &vl2 = ubl->addLayer(100, 1);
+    vl2.quantity(2);
+    auto vl2_ = ubl_->addPtr<UberLayer::VirtualLayer>(&vl2);
+    vl2_->active(true);
+    vl2_->add(argb_);
 
-    // ubl->calc_matrice();
+    ubl->calc_matrice();
 
-    // engine.gui_v->editors[1].get()->selected = ubl_;
-    // engine.gui_v->editors[1].get()->locked = true;
+    engine.gui_v->editors[1].get()->selected = ubl_;
+    engine.gui_v->editors[1].get()->locked = true;
+
 
     engine.run();
 

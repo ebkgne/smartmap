@@ -15,7 +15,7 @@ Window::Window(uint32_t width, uint32_t height, uint32_t offset_x, uint32_t offs
     : fullscreen(fullscreen), Output(width, height) /*, fps("Window")*/ {
 
     int8_t windows_border = 0;
-    int8_t window_on_top = 1;
+    bool window_on_top = true;
     int8_t cursor_visibility = 0;
     int8_t uid_callbacks = 1;
 
