@@ -128,7 +128,7 @@ void EditorWidget::draw() {
     
     bool found = false;
 
-    selected->trig(Node::EDITOR);
+    selected->trig(Node::EDITOR, true);
 
     if (colored_tab)
         ImGui::PopStyleColor(1);

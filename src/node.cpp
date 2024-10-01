@@ -413,22 +413,11 @@ static std::string event_name(Node::Event event){
     return "UNKNOWN";
 }
 
-bool Node::trig_typed(Node::Event e, TypeIndex t, void* out) {
+bool Node::trig_typed(Node::Event e, TypeIndex t, void* out, bool break_) {
 
     bool found = false;
 
     std::string t_NAME = t.pretty_name();
-
-    if (is_lists.find(t) != is_lists.end()) 
-        for (auto is : is_lists[t]) {
-
-            std::string is_NAME = is.first.pretty_name();
-            
-            if (trig_typed(e, is.first, is.second(out))) 
-                found = true;
-
-        }
-
     if (ontyped_cb[e].find(t) != ontyped_cb[e].end()) {
         
         if (e != RUN && e != EDITOR)
@@ -436,24 +425,48 @@ bool Node::trig_typed(Node::Event e, TypeIndex t, void* out) {
 
         (*(std::function<void(Node*,void*)>*) ontyped_cb[e].at(t))(this,out); 
 
+        if (break_)
+            return true;
+        
         found = true; 
         
     }
+
+    if (is_lists.find(t) != is_lists.end()) 
+        for (auto is : is_lists[t]) {
+
+            std::string is_NAME = is.first.pretty_name();
+            
+            if (trig_typed(e, is.first, is.second(out), break_)) {
+                if (break_)
+                    return true;
+                found = true;
+            }
+            
+
+        }
+
+
 
     return found;
 
 }
 
-bool Node::trig(Event e)  { 
-
-    bool found = trig_typed(e, type(), void_ptr);
+bool Node::trig(Event e, bool break_)  { 
     
-    trig_typed(e, typeid(AnyNode), void_ptr);
+    bool found = false;
 
     if (on_cb.find(e) != on_cb.end()) {
+
         on_cb[e](this);
         found = true;
     }
+
+    if (!found || !break_)
+        found = trig_typed(e, type(), void_ptr, break_);     
+
+    if (!found)
+        found = trig_typed(e, typeid(AnyNode), void_ptr);
 
     return found;
     
