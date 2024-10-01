@@ -19,22 +19,32 @@ struct Modelable : Effectable {
 
 struct Model : Effectable {
 
-    Member stat;
-
     File* file;
-
-    uint32_t dimensions_v[2] = {0,0};
-    
-    uint32_t grid_v[2] = {1,1};
-
-    void dimensions(uint32_t width, uint32_t height);
-
-    bool vbo_split_mode = false;
 
     Model(File* f, std::string name);
 
     ~Model();
 
     static void convert(File* model, std::string type);
+
+};
+
+
+struct Cloner : Model {
+
+    Cloner(File* f, std::string name);
+
+    Member stat;
+
+    uint32_t quantity_v[3] = {1,1,1};
+    
+    enum Mode {
+
+        CUBE,
+        SPHERE,
+        CYLINDER
+
+    } mode = CUBE;
+
 
 };

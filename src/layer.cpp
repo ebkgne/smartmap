@@ -17,35 +17,16 @@ Layer::Layer(uint16_t width, uint16_t height, std::string name) :
     fb((width?width:engine.window.width), 
     (height?height:engine.window.height)), 
     DrawCall(name),
+    models_stat("models"),
     stat(name)
     
 {
 
-    static bool init = false;
-
-    if (!init) {
-
-        globals.layers.striding(true);
-
-        engine.static_ubo->add(&globals.layers);
-
-        glsl_layers =  &(*new Instance(*engine.static_ubo))[&globals.layers];
-
-        init = true;
-
-    }
-
-    int xxx = glsl_layers->stl.back().m->quantity();
-
-    vbo.layer_id = glsl_layers->stl.back().m->quantity();
-
-    glsl_layers->stl.back().m->quantity(vbo.layer_id+1);
-
-    // glsl_layers->eq(vbo.layer_id).set<std::array<float,2>>({(float)width,(float)height});
-
-    // engine.static_ubo->upload();]
     stat.add(&globals.layer);
+    stat.force_ref = true;
     engine.static_ubo->add(&stat);
+    Instance(*engine.static_ubo)[&stat].set<float,2>({(float)width,(float)height});
+    statinst =  &(*new Instance(*engine.static_ubo))[&stat];
 
 }
 
@@ -63,6 +44,17 @@ Layer::Feedback* Layer::feedback() {
         feedback_v = new Layer::Feedback(this);
     
     return feedback_v; 
+    
+}
+ 
+
+
+void Layer::resize(uint32_t width, uint32_t height) {
+
+    if ( width && height)
+        fb.create(width, height);
+
+    statinst->set<float,2>({(float)fb.texture.width,(float)fb.texture.height});
     
 }
 

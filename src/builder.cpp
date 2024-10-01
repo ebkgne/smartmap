@@ -24,8 +24,9 @@ static void addSmallerFirst(Member* m, std::vector<Member*>& v) {
     if (m->isData())
         return;
 
-    for (auto x : m->members) 
-        addSmallerFirst(x->ref(), v);
+    if (!m->force_ref)
+        for (auto x : m->members) 
+            addSmallerFirst(x->ref(), v);
 
     ADD_UNIQUE<Member*>(v, m);
 
@@ -42,11 +43,10 @@ std::string Builder::unique(Member* m ) {
     while (true) {
 
         bool found = false;
-        auto lname = lower(name);
 
         for (auto &x : unique_names) 
             
-            if (x.second == lname || x.second == name) {
+            if (lower(x.second )== lower(name)) {
         
                 name += "0";
                 found = true;
@@ -293,6 +293,8 @@ std::string Builder::layout() {
 
         auto name = camel(unique_names[member]);
 
+        if (member->force_ref)
+            member = member->members[0];   
         for (auto x : member->members) {
 
             if (!x->size()) continue;
@@ -300,7 +302,7 @@ std::string Builder::layout() {
             auto ref = x->ref();   
 
 
-            content+=tb+""+(x->isData()?x->type_name():camel(unique_names[ref]))+" "+lower(ref->_name());
+            content+=tb+""+(x->isData()?x->type_name():camel(unique_names[ref]))+" "+lower(x->_name());
 
             if (!ref->isData() && ref->quantity()>1) content += "["+std::to_string(ref->quantity())+"]";
 

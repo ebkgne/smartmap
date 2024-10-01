@@ -147,9 +147,12 @@ public:
 
     Member* copy_v = nullptr;
     
-private:
     
     bool buffering_v = false;
+    
+    bool force_ref = false;
+    
+private:
 
     bool striding_v = false;
 

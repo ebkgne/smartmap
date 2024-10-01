@@ -275,8 +275,11 @@ EffectorRef::EffectorRef(std::string name, Effector* effector ) : Member(""), ef
 
 Effectable::~Effectable() {
 
-     if (instance) 
-        delete instance;
+     if (dyninst) 
+        delete dyninst;
+
+     if (statinst) 
+        delete statinst;
 
 }
 

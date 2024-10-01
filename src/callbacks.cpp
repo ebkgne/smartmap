@@ -127,9 +127,12 @@ void Callbacks::init() {
     ////////// DRAWCALL
 
     
-    NODE<Layer>::on(Node::CHANGE, [](Node* node, Layer *layer){ 
+    NODE<Layer>::on(Node::CREATE, [](Node* node, Layer *layer){ 
 
-        layer->glsl_layers->eq(layer->vbo.layer_id).set<std::array<float,2>>({(float)layer->fb.texture.width,(float)layer->fb.texture.height});
+        NODE<Member>::on_cb[Node::CREATE](node, &layer->stat);
+    
+    });
+    NODE<Layer>::on(Node::CHANGE, [](Node* node, Layer *layer){ 
 
         NODE<Member>::on_cb[Node::CHANGE](node, &layer->stat);
     
@@ -147,9 +150,9 @@ void Callbacks::init() {
         
     }); 
 
-    NODE<Model>::on(Node::CHANGE, [](Node* node, Model *model) {
+    NODE<Cloner>::on(Node::CHANGE, [](Node* node, Cloner *cloner) {
 
-        NODE<Member>::on_cb[Node::CHANGE](node, &model->stat);
+        NODE<Member>::on_cb[Node::CHANGE](node, &cloner->stat);
 
     });
 
@@ -174,6 +177,7 @@ void Callbacks::init() {
     NODE<UberLayer>::is_a<Layer>();
     NODE<Layer>::is_a<DrawCall>();
     NODE<Model>::is_a<Effectable>();
+    NODE<Cloner>::is_a<Model>();
     NODE<UberLayer::VirtualLayer>::is_a<Effectable>();
     NODE<Effectable>::is_a<Member>();
     NODE<Effector>::is_a<Member>();
@@ -444,7 +448,7 @@ void Callbacks::init() {
         auto &uni = *_this->is_a<Universe>();
         auto &effectable = *node->is_a<Effectable>();
 
-        auto remap = _this->addOwnr<DMXRemap>(uni.instance, effectable.instance);
+        auto remap = _this->addOwnr<DMXRemap>(uni.instance, effectable.dyninst);
 
         remap->add(node); 
     
@@ -459,16 +463,16 @@ void Callbacks::init() {
 
         engine.tree->each<Effectable>([&](Node* node, Effectable* effectable){ 
             
-            if (effectable->instance == remap.src) 
+            if (effectable->dyninst == remap.src) 
                 node->referings.erase(_this);
-            else if (effectable->instance == remap.dst) 
+            else if (effectable->dyninst == remap.dst) 
                 node->referings.erase(_this);
             
         });
 
         node->referings.insert(_this);
         
-        remap.dst = effectable.instance;
+        remap.dst = effectable.dyninst;
         
         // also add to Universe na ?
 

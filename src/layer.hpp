@@ -10,7 +10,7 @@
 
 struct Layer : DrawCall {
 
-    Member stat;
+    Member stat,models_stat;
 
     struct Feedback : Effector {
 
@@ -32,11 +32,11 @@ struct Layer : DrawCall {
     
     virtual Feedback* feedback();
 
-    Layer(uint16_t width = 0, uint16_t height = 0, std::string name = "");
+    Layer(uint16_t width = 0, uint16_t height = 0, std::string name = "layer");
 
     void draw() override;
 
-    static inline Instance* glsl_layers;
+    void resize(uint32_t width, uint32_t height);
 
 };
 

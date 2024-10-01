@@ -77,7 +77,9 @@ void DrawCall::Builder::setup() {
         int i = 0;
         for (auto model : dc->models) {
 
-            for (auto e = 0; e < model->quantity(); e++)
+            for (auto e = 0; e < model->quantity(); e++) 
+            
+                // here wouild split in case of grid or dimensions |(aka cloning ?)
 
                 vbo->addFile(model->file, i++);
 
@@ -97,7 +99,7 @@ void DrawCall::Builder::setup() {
 
     header_fragment += "in flat int ID;\n"; // COULD add condition
     header_fragment += "\tint obj  = int(OBJ);\n\n"; // COULD add condition
-    
+
     header_fragment += "vec2 uv = UV;\n";
     header_fragment += "vec4 color = vec4(0);\n";
     // header_fragment += "vec2 base_uv = uv;\n";
@@ -123,7 +125,7 @@ void DrawCall::Builder::setup() {
     
 
     // do models effectors
-   std::string ar_str = "layers"+std::string(Layer::glsl_layers->m()->quantity()>1?"[int(LAYER)]":"");
+   std::string ar_str = "layers";//+std::string(Layer::statinst->m()->quantity()>1?"[int(LAYER)]":""); // statint missusded, should be 
     if (dc->models.size() == 1) 
         body_fragment += print_layer( *dc->models[0].get(), lower(dc->name()), "obj", ar_str );
 
@@ -194,7 +196,7 @@ DrawCall::DrawCall(std::string name) : Modelable(engine.dynamic_ubo->next_name(n
 
     engine.dynamic_ubo->add(this);
 
-    instance = &(new Instance(*engine.dynamic_ubo))->loc(this);
+    dyninst = &(new Instance(*engine.dynamic_ubo))->loc(this);
 
 }
 

@@ -13,23 +13,17 @@
 #include "instance.hpp"
 #include "engine.hpp"
 
-Model::Model(File* f, std::string name) : Effectable(name), file(f), stat(name) {  };
+Model::Model(File* f, std::string name) : Effectable(name), file(f) {  };
+
+Cloner::Cloner(File* f, std::string name) : Model(f, name) , stat(name) { 
+
+    stat.add(&globals.model);
+    engine.static_ubo->add(&stat);
+    statinst =  &(*new Instance(*engine.static_ubo))[&stat];
+
+ };
 
 Model::~Model() { }
-
-void Model::dimensions(uint32_t width, uint32_t height) { 
-
-    if (!width || !height) {
-        engine.static_ubo->remove(stat);
-
-    }else
-        if (!dimensions_v[0] || !dimensions_v[1])
-            engine.static_ubo->add(&stat);
-
-    dimensions_v[0] = width;
-    dimensions_v[1] = height;
-
-}
 
 void Model::convert(File* file, std::string type) {
 
@@ -62,7 +56,7 @@ Model* Modelable::addModel(File* f) {
 
     add(mod);
 
-    mod->instance = &(new Instance(*instance))->loc(mod);
+    mod->dyninst = &(new Instance(*dyninst))->loc(mod);
 
     return mod;
 

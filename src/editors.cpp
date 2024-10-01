@@ -466,8 +466,8 @@ void Editors::init() {
 
             auto layer = node->is_a<Layer>();
 
-            if (layer && dims[node][0] && dims[node][1])
-                layer->fb.create(dims[node][0], dims[node][1]);
+            if (layer)
+                layer->resize(dims[node][0], dims[node][1]);
 
         } 
 
@@ -495,17 +495,20 @@ void Editors::init() {
 
 
             if (ImGui::BeginTabItem("programmer")) {
+
+                if (m->buffering_v) {
+                    
+                    auto widget = SlidersWidget(m);
+                    if (m->buffering() && widget[0]) {
                 
-                auto widget = SlidersWidget(m);
-                if (m->buffering() && widget[0]) {
-            
-                    m->upload();
+                        m->upload();
 
-                    // engine.stack->each<UberLayer>([](Node*n, UberLayer* ubl){ ubl ->fb.clear();});
-                    // engine.stack->each<Layer>([](Node*n, Layer* layer){ layer ->fb.clear();});
+                        // engine.stack->each<UberLayer>([](Node*n, UberLayer* ubl){ ubl ->fb.clear();});
+                        // engine.stack->each<Layer>([](Node*n, Layer* layer){ layer ->fb.clear();});
 
-                    // engine.stack->each([](Node* node){ if (node->type().id == typeid(UberLayer) || node->type().id == typeid(Layer)) ((Layer*)node->ptr)->fb.clear(); });
+                        // engine.stack->each([](Node* node){ if (node->type().id == typeid(UberLayer) || node->type().id == typeid(Layer)) ((Layer*)node->ptr)->fb.clear(); });
 
+                    }
                 }
 
                 ImGui::EndTabItem();
@@ -580,8 +583,8 @@ void Editors::init() {
 
         ImGui::SeparatorText(effectable->name().c_str());
 
-        if (effectable->instance)
-            NODE<Instance>::on_cb[Node::EDITOR]( node, effectable->instance);
+        if (effectable->dyninst)
+            NODE<Instance>::on_cb[Node::EDITOR]( node, effectable->dyninst);
 
     });
 
