@@ -39,7 +39,7 @@ std::string DrawCall::Builder::print_layer(Effectable &effectable, std::string p
 
     body_fragment += "\t// "+name+"\n";
 
-    body_fragment += "\taspect_ratio = static_ubo."+ar+".dim;\n";
+    // body_fragment += "\taspect_ratio = static_ubo."+ar+".dim;\n";
                 
 	body_fragment += "\tnext(vec4(1));\n";
 
@@ -74,9 +74,12 @@ void DrawCall::Builder::setup() {
         dc->last_modified.clear();
         vbo->clear();
 
+        int i = 0;
         for (auto model : dc->models) {
 
-            vbo->addFile(model->file);
+            for (auto e = 0; e < model->quantity(); e++)
+
+                vbo->addFile(model->file, i++);
 
 
         }
@@ -93,7 +96,8 @@ void DrawCall::Builder::setup() {
     header_fragment += "\n";
 
     header_fragment += "in flat int ID;\n"; // COULD add condition
-
+    header_fragment += "\tint obj  = int(OBJ);\n\n"; // COULD add condition
+    
     header_fragment += "vec2 uv = UV;\n";
     header_fragment += "vec4 color = vec4(0);\n";
     // header_fragment += "vec2 base_uv = uv;\n";
@@ -107,33 +111,48 @@ void DrawCall::Builder::setup() {
     
     body_fragment += "\tCOLOR = vec4(0);\n\n";
 
-    if (dc) {
 
-        for (auto &model : dc->models) 
-            for (auto x : model->effector_refs) 
-                x.get()->effector->setup(this);
-        
-        for (auto x : dc->effector_refs) 
+    // setup models effectors
+    for (auto &model : dc->models) 
+        for (auto x : model->effector_refs) 
             x.get()->effector->setup(this);
-        
+    
+    // setup layer effectors
+    for (auto x : dc->effector_refs) 
+        x.get()->effector->setup(this);
+    
 
-        // do all body 
+    // do models effectors
+   std::string ar_str = "layers"+std::string(Layer::glsl_layers->m()->quantity()>1?"[int(LAYER)]":"");
+    if (dc->models.size() == 1) 
+        body_fragment += print_layer( *dc->models[0].get(), lower(dc->name()), "obj", ar_str );
 
-        for (auto &model : dc->models)
-            for (int instance = 0; instance < (dc->models.size() == 1?1:model.get()->quantity()); instance++) 
-                body_fragment += print_layer(*model, lower(dc->_name()), std::to_string(instance), "layers"+std::string(Layer::glsl_layers->m()->quantity()>1?"[int(LAYER)]":""));
+    else {
 
+        int last_id = 0;
 
-        for (auto ref : dc->effector_refs) 
-            body_fragment += ref.get()->effector->body(this, "dynamic_ubo[curr]."+lower(dc->_name())+"."+lower(ref->ref()->_name()));
-        
-        // setup all effector_refs
+        for (auto &x : dc->models) {
 
+            if (last_id) body_fragment += "\n} else ";
 
-        if (dc->effector_refs.size()) 
-            body_fragment += "\tnext(vec4(0));\n\n";
+            auto l = last_id;
+            last_id += x.get()->quantity();
+
+            body_fragment += "if (obj < "+std::to_string(last_id)+" ){ "+(l?"obj -= "+std::to_string(l)+";":"")+"\n\n" + print_layer( *x.get(), lower(dc->name()), "obj", ar_str );
+
+        }
+
+        if (dc->models.size()) body_fragment += "\n}\n";
 
     }
+
+    
+    // do layer effectors
+    for (auto ref : dc->effector_refs) 
+        body_fragment += ref.get()->effector->body(this, "dynamic_ubo[curr]."+lower(dc->_name())+"."+lower(ref->ref()->_name()));
+    
+    if (dc->effector_refs.size()) 
+            body_fragment += "\tnext(vec4(0));\n\n";
 
     // VERTEX ////////////////
 
