@@ -129,7 +129,7 @@ struct BoilerQuad {
 
     GLuint vao = 0,vbo = 0,ibo = 0;
 
-    static inline std::vector<std::array<float, 4>> vertices = { {-.5, -.5, 0, 1}, {.5, -.5, 1, 1}, {-.5, .5, 0, 0}, {.5, .5, 1, 0} };
+    std::vector<std::array<float, 4>> vertices;
 
     static inline std::vector<std::array<int, 3>> indices ={ {0,1,2}, {1,2,3} };
 
@@ -153,7 +153,9 @@ struct BoilerQuad {
 
     }
 
-    BoilerQuad() {
+    BoilerQuad(float r) {
+
+        vertices =  { {-r, -r, 0, 1}, {r, -r, 1, 1}, {-r, r, 0, 0}, {r, r, 1, 0} };
 
         glGenBuffers(1, &vbo);
         glBindBuffer(GL_ARRAY_BUFFER, vbo);

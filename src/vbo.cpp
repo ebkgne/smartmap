@@ -87,8 +87,9 @@ void VBO::clear() {
 
 void VBO::reset() {
 
-    upload();
+    clear();
 
+    upload();
 
 }
 
@@ -135,13 +136,15 @@ void VBO::upload() {
 
     // std::string str;
     // for (int i = 0 ; i < size(); i++) str+= std::to_string(*(((uint8_t*)data())+i)) + " ";
-    // PLOGW << name() << ": " << footprint_all() << " - " << str;
+    // PLOGW << name() << ": " << footprint_all() << " - " << vbo << " - " << str;
 
 }
 
 void VBO::draw(int count) {
 
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBindVertexArray(vao);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibo);
 
     glDrawElementsInstanced(GL_TRIANGLES, indices.footprint_all()/sizeof(int), GL_UNSIGNED_INT, 0, count);
 

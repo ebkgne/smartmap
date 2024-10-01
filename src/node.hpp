@@ -24,7 +24,8 @@ struct Node {
         RUN,
         DESTROY,
         ACT,
-        DEACT
+        DEACT,
+        EDITOR
 
     };
 

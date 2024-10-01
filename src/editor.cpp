@@ -126,12 +126,21 @@ void EditorWidget::draw() {
         ImGui::DockNodeEndAmendTabBar();
       }
     
-    if(EDITOR::cb.find(selected) != EDITOR::cb.end()) 
+    bool found = false;
+    if(EDITOR::cb.find(selected) != EDITOR::cb.end()) {
         EDITOR::cb[selected](selected);
-
-    if(EDITOR::ptr.find(selected->stored_type) != EDITOR::ptr.end()) 
+        found = true;
+    }
+    if(!found && EDITOR::ptr.find(selected->stored_type) != EDITOR::ptr.end()) {
 
         (*(std::function<void(Node*,void*)>*)EDITOR::ptr[selected->stored_type])(selected,selected->void_ptr);
+        found = true;  
+    }
+    if (!found) {
+
+
+
+    }
 
     if (colored_tab)
         ImGui::PopStyleColor(1);
