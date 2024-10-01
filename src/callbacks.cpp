@@ -134,6 +134,7 @@ void Callbacks::init() {
     });
     NODE<Layer>::on(Node::CHANGE, [](Node* node, Layer *layer){ 
 
+        NODE<Member>::on_cb[Node::CHANGE](node, layer);
         NODE<Member>::on_cb[Node::CHANGE](node, &layer->stat);
     
     });

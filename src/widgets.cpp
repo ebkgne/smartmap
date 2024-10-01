@@ -124,6 +124,8 @@ void ImGui::DefWidget(Member *member_, int offset, int depth) {
 
     ImGui::TextX(std::string(!member->isData() ? "struct" : member->type_name()) + " " + member->name(), offset, member->footprint(), depth,range);
 
+    if (member->force_ref)
+        member = member->members[0];
     for (auto m : member->members) {
 
         DefWidget(m, offset, depth+1);
@@ -410,6 +412,8 @@ std::array<bool,2> ImGui::SlidersWidget(Member* buff, Member* member, uint32_t o
 
     // if (member->ref()) member = member->ref();
 
+    if (member->force_ref)
+        member = member->members[0];
     for (auto& m : member->members) {
 
         if (m->isData()) {
