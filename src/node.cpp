@@ -68,6 +68,7 @@ Node::~Node() {
 Node* Node::find(std::vector<std::string> names) {
 
     find_list.clear();
+    find_pos = 0;
 
     BFS([&](Node* n){
 
@@ -331,6 +332,7 @@ Node* Node::operator[](std::string name) { return find(name); }
 
 Node* Node::operator[](int id) { return childrens[id]; }
 
+
 void Node::update() {
 
     PLOGV << type_name() << "::" << name();
@@ -346,6 +348,8 @@ void Node::update() {
         for (auto x : referings)
             if (x)
                 x->update();
+
+    last_change = (start_time - boost::posix_time::microsec_clock::local_time()).total_milliseconds();
 
 }
 
