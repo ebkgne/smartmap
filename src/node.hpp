@@ -111,7 +111,7 @@ struct Node {
 
     std::set<Node*> referings;
 
-    void trig(Event event);
+    bool trig(Event event);
 
     template <typename T>
     void onadd(std::function<Flag(Node*,Node*)> cb) { onadd_cb[typeid(T)] = cb; }
@@ -259,7 +259,7 @@ struct Node {
 private:
 
     Node* add_typed(TypeIndex t, TypeIndex u, Node* to_add, void* out);
-    void trig_typed(Event event, TypeIndex type, void* out);
+    bool trig_typed(Event event, TypeIndex type, void* out);
     
     Node* parent_node = nullptr;
 

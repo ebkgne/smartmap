@@ -127,20 +127,8 @@ void EditorWidget::draw() {
       }
     
     bool found = false;
-    if(EDITOR::cb.find(selected) != EDITOR::cb.end()) {
-        EDITOR::cb[selected](selected);
-        found = true;
-    }
-    if(!found && EDITOR::ptr.find(selected->stored_type) != EDITOR::ptr.end()) {
 
-        (*(std::function<void(Node*,void*)>*)EDITOR::ptr[selected->stored_type])(selected,selected->void_ptr);
-        found = true;  
-    }
-    if (!found) {
-
-
-
-    }
+    selected->trig(Node::EDITOR);
 
     if (colored_tab)
         ImGui::PopStyleColor(1);

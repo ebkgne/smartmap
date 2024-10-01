@@ -157,24 +157,24 @@ void Engine::init() {
 
     });
 
-    EDITOR::cb[main] = [](Node* n) {
+    main->on(Node::EDITOR, [](Node* n) {
 
         if (ImGui::BeginTabBar("##mamain")) {
             if (ImGui::BeginTabItem("log")) {
         
-                Editor<Log>::cb_typed(n, &logger);
+                NODE<Log>::on_cb[Node::EDITOR](n, &logger);
                 
                 ImGui::EndTabItem(); 
             }
             if (ImGui::BeginTabItem("dynubo")) {
         
-                Editor<UBO>::cb_typed(n, engine.dynamic_ubo);
+                NODE<UBO>::on_cb[Node::EDITOR](n, engine.dynamic_ubo);
                 
                 ImGui::EndTabItem(); 
             }
             if (ImGui::BeginTabItem("statubo")) {
         
-                Editor<UBO>::cb_typed(n, engine.static_ubo);
+                NODE<UBO>::on_cb[Node::EDITOR](n, engine.static_ubo);
                 
                 ImGui::EndTabItem(); 
             }
@@ -182,7 +182,7 @@ void Engine::init() {
             ImGui::EndTabBar();
         
         }
-    }; 
+    }); 
 
     tree->addPtr<File>(&VBO::quad);
 
