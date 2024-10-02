@@ -1,9 +1,7 @@
 {
     "editors": [["main::layer"], ["main::UberLayer"], ["main"]],
     "effectors": {
-        "argb.glsl": "//red(0,1,1)\n//green(0,1,1)\n//blue(0,1,1)\n//alpha(0,1,1)\n \nvoid argb(float alpha, float red, float green, float  blue) { \n\n\tcolor = color * vec4 (red, green, blue, 1) * alpha; \n\n}",
-        "rectangle.glsl": "//size(0,1,.5) \n//pos(0,1,0.5)\n//orientation(0,1,0.5) \n\nvoid rectangle(vec2 pos, vec2 size, float orientation) {\n\n\n\tuv = uv - pos - pos*size + size*0.5;\n\n\torientation = (orientation-.5)*6.2831853072;\n\t\n\tfloat c = cos(orientation);\n\tfloat s = sin(orientation);\n\t\n\tuv *= aspect_ratio;\n\tuv = vec2(uv.x * c - uv.y * s, uv.x * s + uv.y * c);\n\tuv *= 1./aspect_ratio;\n\t\n\tvec2 tuv = abs(uv) - size * 0.5;\n\tfloat dist = length(max(tuv, 0)) + min(max(tuv.x, tuv.y), 0);\n\n\tuv/=size;\n\n\tuv+=.5;\n\t\n\tcolor *= vec4(vec3(1 - step(0, dist)), 1);\n\n}\n"
-        
+        "argb.glsl": "//red(0,1,1)\n//green(0,1,1)\n//blue(0,1,1)\n//alpha(0,1,1)\n \nvoid argb(float alpha, float red, float green, float  blue) { \n\n\tcolor = color * vec4 (red, green, blue, 1) * alpha; \n\n}"     
     },
     "outputs": {
         "HDMI 1": {

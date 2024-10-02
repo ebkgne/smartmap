@@ -66,12 +66,12 @@ void VBO::create() {
 
 VBO::~VBO()  {
 
+    REMOVE<VBO*>(pool, this);
+    
     destroy();
 
-    removeHard(indices);
-    removeHard(vertices);
-
-    REMOVE<VBO*>(pool, this);
+    remove(indices);
+    remove(vertices);
 
 }
 
@@ -161,7 +161,9 @@ void VBO::addQuad(float w, float h, float x, float y, int id) {
     auto w_ = (x+w);
     auto h_ = (y+h);
 
-    vertices.quantity(vertices.quantity()+4);
+    auto old_q = vertices.quantity();
+
+    vertices.quantity(old_q+4);
     auto v = Instance(*this)[&vertices].eq(vertices.quantity()-4);
     v.set<float,32>(
         x_*2-1 , y_*2-1 , 0.0f, 0.0f, x_ , y_ ,  (float)id, (float)layer_id,

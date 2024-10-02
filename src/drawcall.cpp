@@ -84,7 +84,7 @@ void DrawCall::Builder::setup() {
     if (changed) {
 
         dc->last_modified.clear();
-        vbo->clear();
+        vbo->reset();
 
         int i = 0;
         int model_id = 1;

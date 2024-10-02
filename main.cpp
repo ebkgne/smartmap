@@ -16,63 +16,29 @@
 
 int main() {
 
-    logger.cout(Sev::warning);
+    logger.cout(Sev::verbose);
 
-    engine.init();
+    Member buff("buff");
 
-    engine.open("project.json");  
-    engine.window.size(100, 10);
-    engine.gui(true);
+    // buff.buffering(true);
 
-    auto main_ = engine.tree->find("main")->allow<AnyNode>();
+    auto mint = new Member("int1", TYPE<int>());
+    // buff.members.push_back(mint);
+    // buff.size_v += mint->footprint_all();
+    // buff.calc_size();
 
-    auto argb_ = engine.tree->find("argb");
-    auto rectangle_ = engine.tree->find("rectangle");
-    auto quad_ = engine.tree->find("quad");
+    // for (auto a : Member::structs) 
+    //     for (auto &m : a->members) 
+    //         if (m == &buff) 
+    //             a->update_pv();
 
+    // buff.buffer_v.resize(buff.footprint_all());
+    // memset( buff.buffer_v.data(), 0, buff.buffer_v.size() );
 
-    main_->add(quad_);
-    auto lay_ = main_->childrens.back();
-    auto v1_ = lay_->childrens.back();
-    v1_->add(argb_);
-    v1_->add(rectangle_);
-    auto v2_ = lay_->add(quad_);
-    v2_->add(argb_);
-    v2_->add(rectangle_);
-    engine.gui_v->editors[0].get()->selected = lay_;
-    engine.gui_v->editors[0].get()->locked = true;
+    mint->quantity(1500);
 
-    auto model = v2_->is_a<Model>();
-    model->quantity_v[0] = 7;
-    model->quantity_v[1] = 5;
-    model->quantity(model->quantity_v[0]*model->quantity_v[1]);
-    v2_->update();
-
-    // auto ubl_ = engine.tree->find("main")->addOwnr<UberLayer>();
-    // auto ubl = ubl_->is_a<UberLayer>();
-
-    // auto &vl1 = ubl->addLayer(100, 1);
-    // vl1.quantity(5);
-    // auto vl1_ = ubl_->addPtr<UberLayer::VirtualLayer>(&vl1);
-    // vl1_->active(true);
-    // vl1_->add(argb_);
-
-    // auto &vl2 = ubl->addLayer(100, 1);
-    // vl2.quantity(2);
-    // auto vl2_ = ubl_->addPtr<UberLayer::VirtualLayer>(&vl2);
-    // vl2_->active(true);
-    // vl2_->add(argb_);
-
-    // ubl->calc_matrice();
-
-    // engine.gui_v->editors[1].get()->selected = ubl_;
-    // engine.gui_v->editors[1].get()->locked = true;
-
-
-
-
-
-
-    engine.run();
+    buff.add(mint);
+    delete mint;
+    // buff.add<int,10000>("val1");
 
 }

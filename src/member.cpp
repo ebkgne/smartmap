@@ -316,7 +316,7 @@ void Member::add(Member* m) {
 
     members.push_back(m);
 
-    size_v += members.back()->footprint_all();
+    size_v += m->footprint_all();
 
     auto mq = adding.emplace_back(MemberQ{m,0,m->quantity()});
     update_pv();
@@ -506,7 +506,9 @@ void Member::update_pv() {
 
     if (bkp_v) {
 
-        if (footprint_all() > MAX_SIZE) { PLOGE << footprint_all() << " > MAX_SIZE"; }
+        if (footprint_all() > MAX_SIZE) { 
+            PLOGE << footprint_all() << " > MAX_SIZE: " << MAX_SIZE; 
+        }
 
         buffer_v.resize(footprint_all());
 

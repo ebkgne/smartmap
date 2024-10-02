@@ -120,7 +120,7 @@ struct Member {
 
     uint32_t factor = 1;
 
-private:
+// private:
 
     std::string name_v;
 
@@ -138,7 +138,7 @@ public:
     
     std::set<Instance*> instances;
 
-private:
+// private:
     
     std::vector<char> buffer_v;
 
@@ -152,7 +152,8 @@ public:
     
     bool force_ref = false;
     
-private:
+    static inline int MAX_SIZE = 10000;
+// private:
 
     bool striding_v = false;
 
@@ -165,7 +166,6 @@ private:
     std::vector<MemberQ> adding;
     std::set<std::shared_ptr<Instance>> tops;
 
-    static inline int MAX_SIZE = 10000;
 
 };
 
