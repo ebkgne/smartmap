@@ -553,13 +553,6 @@ void Editors::init() {
 
     ////////// MODEL.HPP
 
-    NODE<Model>::on(Node::EDITOR, [&](Node* node, Model *model){
-
-        NODE<Effectable>::on_cb[Node::EDITOR]( node, model);
-
-
-    });
-
     NODE<Instance>::on(Node::EDITOR, [&](Node* node, Instance *instance){ 
 
         auto widget = SlidersWidget(instance->buff(), node->is_a<Member>(), instance->offset);
@@ -903,7 +896,23 @@ void Editors::init() {
                     EndPopup();
                 }
                 
-                NODE<Effectable>::on_cb[Node::EDITOR](node, dc);
+
+                node->BFS([&](Node* n){
+
+                    if (n->trig(Node::EDITOR, true)) {
+                        
+                        NewLine();
+                        Separator();
+                        NewLine();
+
+                    }
+
+                    // NODE<Model>::on_cb[Node::EDITOR]( n, model);
+
+                    
+                    return true;
+
+                },1);
 
                 ImGui::EndTabItem();
 
@@ -951,6 +960,36 @@ void Editors::init() {
 
     });
 
+    NODE<Model>::on(Node::EDITOR, [&](Node* node, Model *model){
+
+    using namespace ImGui;
+        // static int x = 1, y = 1
+        
+        Text(model->name().c_str()); SameLine();
+
+        if (SliderInt2(("Q#####"+std::to_string(engine.gui_v->member_count++)).c_str(), &model->quantity_v[0], 1, 10)) {
+
+            engine.window.end_of_render_cbs.push_back({node, [](void* ptr){
+                
+                auto node = (Node*)ptr;
+                auto model = node->is_a<Model>();
+                model->quantity(model->quantity_v[0]*model->quantity_v[1]);
+                node->update();
+
+            }});
+        }
+
+        // int offset
+        node->each<EffectorRef>([&](Node* n, EffectorRef* ref){
+            
+            SeparatorText((ref->name()).c_str());
+
+            SlidersWidget(model->dyninst->buff(), ref, model->dyninst->offset);
+
+        });
+
+    });
+
     NODE<Layer>::on(Node::EDITOR, [](Node* node, Layer *layer){
 
         if (ImGui::BeginTabBar("laytab", ImGuiTabBarFlags_None)) {
@@ -988,7 +1027,6 @@ void Editors::init() {
             ImGui::EndTabBar();
 
         }
-
 
         NODE<DrawCall>::on_cb[Node::EDITOR]( node, layer);
 

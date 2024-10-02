@@ -9,6 +9,7 @@
 
 #include <boost/algorithm/string/replace.hpp>
 
+#include "boost/date_time/posix_time/posix_time.hpp"
 
 template <typename T>
 static bool ADD_UNIQUE( std::vector<T>& list, T n) {

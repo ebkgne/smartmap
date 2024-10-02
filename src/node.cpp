@@ -146,7 +146,8 @@ bool Node::DFS(std::function<bool(Node*)> cb, int max_depth) {
 void Node::BFS(std::function<bool(Node*)> cb, int max_depth) {
 
     std::queue<std::pair<Node*, int>> q;
-    q.push({this, 0});
+    for (auto c : childrens) 
+        q.push({c, 0});
 
     while (!q.empty()) {
 
@@ -154,7 +155,7 @@ void Node::BFS(std::function<bool(Node*)> cb, int max_depth) {
         int depth = q.front().second;
         q.pop();
 
-        if (max_depth && depth > max_depth) 
+        if (max_depth && depth >= max_depth) 
             return;
         
         if (!cb(current))
@@ -335,6 +336,7 @@ Node* Node::operator[](int id) { return childrens[id]; }
 
 void Node::update() {
 
+    
     PLOGV << type_name() << "::" << name();
 
     error = false;
@@ -348,6 +350,7 @@ void Node::update() {
         for (auto x : referings)
             if (x)
                 x->update();
+
 
     last_change = (start_time - boost::posix_time::microsec_clock::local_time()).total_milliseconds();
 
@@ -418,21 +421,22 @@ bool Node::trig_typed(Node::Event e, TypeIndex t, void* out, bool break_) {
     bool found = false;
 
     std::string t_NAME = t.pretty_name();
+
     if (ontyped_cb[e].find(t) != ontyped_cb[e].end()) {
         
         if (e != RUN && e != EDITOR)
             {PLOGV << event_name(e)  << " " << t.pretty_name() << "::" << name(); }
 
         (*(std::function<void(Node*,void*)>*) ontyped_cb[e].at(t))(this,out); 
-
+        
         if (break_)
             return true;
-        
+
         found = true; 
         
     }
 
-    if (is_lists.find(t) != is_lists.end()) 
+    if ((!found || !break_ ) && is_lists.find(t) != is_lists.end()) 
         for (auto is : is_lists[t]) {
 
             std::string is_NAME = is.first.pretty_name();
@@ -443,10 +447,7 @@ bool Node::trig_typed(Node::Event e, TypeIndex t, void* out, bool break_) {
                 found = true;
             }
             
-
         }
-
-
 
     return found;
 

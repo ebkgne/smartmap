@@ -6,9 +6,13 @@
 
 
 #include "engine.hpp"
+#include "imgui.h"
+#include "instance.hpp"
 #include "layer.hpp"
 #include "node.hpp"
 #include "editor.hpp"
+#include "gui.hpp"
+#include "widgets.hpp"
 
 int main() {
 
@@ -38,7 +42,11 @@ int main() {
     engine.gui_v->editors[0].get()->selected = lay_;
     engine.gui_v->editors[0].get()->locked = true;
 
-
+    auto model = v2_->is_a<Model>();
+    model->quantity_v[0] = 7;
+    model->quantity_v[1] = 5;
+    model->quantity(model->quantity_v[0]*model->quantity_v[1]);
+    v2_->update();
 
     // auto ubl_ = engine.tree->find("main")->addOwnr<UberLayer>();
     // auto ubl = ubl_->is_a<UberLayer>();
@@ -59,6 +67,10 @@ int main() {
 
     // engine.gui_v->editors[1].get()->selected = ubl_;
     // engine.gui_v->editors[1].get()->locked = true;
+
+
+
+
 
 
     engine.run();

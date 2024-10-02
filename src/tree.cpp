@@ -320,7 +320,12 @@ bool TreeWidget::TreeViewNode(Node* node, int depth, std::array<float,4>& color)
                 ImGui::SetCursorPosX(t_pos.x+21);
                 
                 PushID(gui->member_count++);
-                ButtonEx(node->name().c_str(),ImVec2(0,0),ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonLeft);
+
+                std::string name = node->name();
+
+                // name += " " + std::to_string((int)node->calc_time);
+
+                ButtonEx(name.c_str(),ImVec2(0,0),ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonLeft);
                 PopID();
 
                 PopStyleColor();
@@ -355,6 +360,8 @@ bool TreeWidget::TreeViewNode(Node* node, int depth, std::array<float,4>& color)
                     if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl)) {
                             
                         if (ImGui::BeginMenu("trig")) {
+                            Separator();
+                            if (ImGui::MenuItem("UPDATE")) node->update();
                             Separator();
                             if (ImGui::MenuItem("CHANGE")) node->trig(Node::CHANGE);
                             Separator();
@@ -434,7 +441,9 @@ bool TreeWidget::TreeViewNode(Node* node, int depth, std::array<float,4>& color)
 
             holding = true;
 
-            ImGui::Text(node->name().c_str());
+            std::string name = node->name();
+
+            ImGui::Text(name.c_str());
             ImGui::EndDragDropSource();
 
         }

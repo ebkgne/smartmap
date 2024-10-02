@@ -24,7 +24,7 @@ static void addSmallerFirst(Member* m, std::vector<Member*>& v) {
     if (m->isData())
         return;
 
-    if (!m->force_ref)
+    // if (!m->force_ref)
         for (auto x : m->members) 
             addSmallerFirst(x->ref(), v);
 
@@ -293,8 +293,8 @@ std::string Builder::layout() {
 
         auto name = camel(unique_names[member]);
 
-        if (member->force_ref)
-            member = member->members[0];   
+        // if (member->force_ref)
+        //     member = member->members[0];   
         for (auto x : member->members) {
 
             if (!x->size()) continue;
@@ -304,7 +304,7 @@ std::string Builder::layout() {
 
             content+=tb+""+(x->isData()?x->type_name():camel(unique_names[ref]))+" "+lower(x->_name());
 
-            if (!ref->isData() && ref->quantity()>1) content += "["+std::to_string(ref->quantity())+"]";
+            if (!x->isData() && x->quantity()>1) content += "["+std::to_string(x->quantity())+"]";
 
             content += "; "+nl;
 

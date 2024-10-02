@@ -2,7 +2,7 @@
 
 #include "member.hpp"
 
-static struct Globals {
+struct Globals {
 
     Member universe;
     Member rect;
@@ -37,4 +37,7 @@ static struct Globals {
 
     }
 
-} globals;
+    static Globals& getInstance() { static Globals instance;  return instance; }
+};
+
+static inline Globals &globals = Globals::getInstance();

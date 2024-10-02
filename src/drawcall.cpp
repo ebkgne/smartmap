@@ -55,6 +55,18 @@ std::string DrawCall::Builder::print_layer(Effectable &effectable, std::string p
 }
 
 
+static void addFile(DrawCall*dc, File* file, int id, int w , int h, int x, int y) {
+
+    auto model_inst = Instance(*dc->statinst);
+    model_inst[&dc->models_stat];
+
+    dc->vbo.addFile(file, id, w, h, x, y);
+    dc->models_stat.quantity(id+1);
+    model_inst.eq(id).set<float,4>(w, h, x, y);
+
+
+}
+
 void DrawCall::Builder::setup() {
 
     // detect if VBO list has changed 
@@ -75,17 +87,34 @@ void DrawCall::Builder::setup() {
         vbo->clear();
 
         int i = 0;
+        int model_id = 1;
         for (auto model : dc->models) {
 
-            for (auto e = 0; e < model->quantity(); e++) 
-            
-                // here wouild split in case of grid or dimensions |(aka cloning ?)
+            // here wouild split in case of grid or dimensions |(aka cloning ?)
+            // instead of following forloop
 
-                vbo->addFile(model->file, i++);
+            if (model->cloner == Model::Cloner::CUBE) {
 
+                int w = 1/model->quantity_v[0];
+                int h = 1/model->quantity_v[1];
+                // int d = 1/model->quantity_v[2];
+                for (int x = 0; x < model->quantity_v[0]; x++) 
+                    for (int y = 0; y < model->quantity_v[1]; y++) 
+                        // for (int z = 0; z < model->quantity_v[2]; y++) 
+                            addFile(dc, model->file, i++, w, h, x*w, y*h);
+
+            }else
+
+                for (auto e = 0; e < model->quantity(); e++) {
+
+                    addFile(dc, model->file, i++,1,1,0,0);
+
+                }
+
+            model_id++;
 
         }
-    
+
     }
 
     // shader
@@ -192,11 +221,25 @@ void DrawCall::Builder::setup() {
 
 // DRAWCALLL //////////////////////////////////////
 
-DrawCall::DrawCall(std::string name) : Modelable(engine.dynamic_ubo->next_name(name.length()?name:"layer")) {
+DrawCall::DrawCall(std::string name) : 
+    Modelable(engine.dynamic_ubo->next_name(name.length()?name:"layer")),
+    models_stat(""),
+    stat(name)
+{
 
+    models_stat.quantity(0);
+    models_stat.add(&globals.model);
+    models_stat.force_ref = true;
+    stat.add(&models_stat);
+
+    engine.static_ubo->add(&stat);
     engine.dynamic_ubo->add(this);
 
+    statinst =  &(*new Instance(*engine.static_ubo))[&stat];
+    statinst->track();
+
     dyninst = &(new Instance(*engine.dynamic_ubo))->loc(this);
+    dyninst->track();
 
 }
 

@@ -39,8 +39,8 @@ struct VBO : Member {
 
     void addQuad(float w = 1, float h = 1, float x = 0, float y = 0, int id = 0);
 
-    bool addFile(File *file = &quad, int id = 0);
-    bool addFile_noupload(File *file = &quad, int id = 0);
+    bool addFile(File *file = &quad, int id = 0, int w = 1, int h = 1, int x = 0, int y = 0);
+    bool addFile_noupload(File *file = &quad, int id = 0, int w = 1, int h = 1, int x = 0, int y = 0);
 
     int layer_id = 0;
 

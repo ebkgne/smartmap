@@ -12,9 +12,11 @@
 Member::~Member() {
 
     // remove from other structs
-    for (auto s : structs) 
-        if (std::find(s->members.begin(), s->members.end(), this) != s->members.end()) {
+    for (auto s : structs) {
+        auto it = std::find(s->members.begin(), s->members.end(), this);
+        if (it != s->members.end()) {
             s->remove(*this);  
+    }
 }
     // remove from Member::structs
     if (!isData()) 

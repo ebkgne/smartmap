@@ -10,8 +10,6 @@
 
 struct Layer : DrawCall {
 
-    Member stat,models_stat;
-
     struct Feedback : Effector {
 
         Layer* layer;

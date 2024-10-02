@@ -16,17 +16,13 @@ Layer::Layer(uint16_t width, uint16_t height, std::string name) :
 
     fb((width?width:engine.window.width), 
     (height?height:engine.window.height)), 
-    DrawCall(name),
-    models_stat("models"),
-    stat(name)
+    DrawCall(name)
     
 {
 
     stat.add(&globals.layer);
-    stat.force_ref = true;
-    engine.static_ubo->add(&stat);
-    Instance(*engine.static_ubo)[&stat].set<float,2>({(float)width,(float)height});
-    statinst =  &(*new Instance(*engine.static_ubo))[&stat];
+
+    Instance(*statinst)[&globals.layer].set<float,2>({(float)width,(float)height});
 
 }
 

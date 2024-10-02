@@ -26,6 +26,16 @@ struct Model : Effectable {
     ~Model();
 
     static void convert(File* model, std::string type);
+    
+    int quantity_v[3] = {1,1,1};
+    
+    enum Cloner {
+
+        CUBE,
+        SPHERE,
+        CYLINDER
+
+    } cloner = CUBE;
 
 };
 

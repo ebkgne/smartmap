@@ -182,9 +182,9 @@ void VBO::addQuad(float w, float h, float x, float y, int id) {
 
 }
 
-bool VBO::addFile(File* file, int id) { if (addFile_noupload(file,id)) { upload(); return true; } return false; }
+bool VBO::addFile(File* file, int id, int w , int h, int x, int y) { if (addFile_noupload(file,id,w,h,x,y)) { upload(); return true; } return false; }
 
-bool VBO::addFile_noupload(File* file, int id) {
+bool VBO::addFile_noupload(File* file, int id, int w, int h, int x, int y) {
 
     Assimp::Importer importer;
 
@@ -207,7 +207,7 @@ bool VBO::addFile_noupload(File* file, int id) {
 
         auto v = Instance(*this)[&vertices].eq(vertices.quantity()-1)[&globals.vertice];
 
-        Instance(v)["POSITION"].set<float, 2>({ vertex.x, vertex.y });
+        Instance(v)["POSITION"].set<float, 2>({ vertex.x*w+x, vertex.y*h+y });
         Instance(v)["UV"].set<float, 2>({ mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y });
         Instance(v)["NORMALIZED"].set<float, 2>({ mesh->mTextureCoords[0][i].x, mesh->mTextureCoords[0][i].y });
         Instance(v)["OBJ"].set<float>(id);

@@ -20,6 +20,7 @@ Cloner::Cloner(File* f, std::string name) : Model(f, name) , stat(name) {
     stat.add(&globals.model);
     engine.static_ubo->add(&stat);
     statinst =  &(*new Instance(*engine.static_ubo))[&stat];
+    statinst->track();
 
  };
 

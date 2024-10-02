@@ -9,6 +9,8 @@
 
 struct DrawCall : Modelable {
 
+    Member stat,models_stat;
+
     DrawCall(std::string name = "DrawCall");
 
     virtual void draw();
