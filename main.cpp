@@ -76,16 +76,7 @@ struct Member : std::enable_shared_from_this<Member>  {
         void type(std::shared_ptr<Member> type) {
 
             type_v = type;
-
-            // if (type->type_v == typeid(uint32_t)) to = 65535;
             
-            // else if (type->type_v == typeid(int)) to = 0;
-
-            // else if (type->type_v == typeid(uint8_t)) to = 255;
-
-            // else if (type->type_v == typeid(char)) to = -1;
-            
-            // range(0,to,0);
 
         }
 
@@ -110,7 +101,40 @@ struct Member : std::enable_shared_from_this<Member>  {
         }
 
         char* from() { return rangedef.size()?rangedef.data():nullptr; }
-        char* to() { return rangedef.size()?rangedef.data()+(type_v->size()):nullptr; }
+
+        char* to() { 
+            
+            if (rangedef.size())
+                return rangedef.data()+(type_v->size());
+            
+            static uint64_t ui64 = 9999999999999999999u;
+            static uint32_t ui32 = 65535u;
+            static uint16_t ui16 = 16654u;
+            static uint16_t ui8 = 255u;
+
+            static int64_t i64 = 999999999999999999;
+            static int32_t i32 = 65535;
+            static int16_t i16 = 16654;
+            static int16_t i8 = 255;
+
+            static float f16 = 99999999999999999999999999999999999999.9f;
+            static double f32 = 99999999999999999999999999999999999999.9f;
+
+            if (type_v->type_v == typeid(float)) return (char*)&f16;
+            if (type_v->type_v == typeid(double)) return (char*)&f32;
+            if (type_v->type_v == typeid(uint64_t)) return (char*)&ui64;
+            if (type_v->type_v == typeid(uint32_t)) return (char*)&ui32;            
+            if (type_v->type_v == typeid(uint16_t)) return (char*)&ui16;
+            if (type_v->type_v == typeid(uint8_t)) return (char*)&ui8;
+            if (type_v->type_v == typeid(int64_t)) return (char*)&i64;
+            if (type_v->type_v == typeid(int32_t)) return (char*)&i32;            
+            if (type_v->type_v == typeid(int16_t)) return (char*)&i16;
+            if (type_v->type_v == typeid(int8_t)) return (char*)&i8;
+
+            return nullptr;
+
+        }
+
         char* def() { 
 
             if (rangedef.size()) return rangedef.data()+(type_v->size()*2);
@@ -167,21 +191,21 @@ struct Member : std::enable_shared_from_this<Member>  {
     uint32_t stride() { return 0 ; }
     uint32_t footprint() { return size() + stride() ; }
   
-    virtual void pre(std::shared_ptr<Member> changing) {}
-    virtual void post(std::shared_ptr<Member> changing) {}
+    virtual void pre(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp, std::shared_ptr<Member> bkp) {}
+    virtual void post(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp, std::shared_ptr<Member> bkp) {}
 
-    std::set<std::shared_ptr<Member>> observe(int phase = 0) {
+    std::set<std::shared_ptr<Member>> observe() {
 
-        std::set<std::shared_ptr<Member>> found;
+        std::set<std::shared_ptr<Member>> out;
 
         if (!observers.size()) 
-            found.insert(shared_from_this());
+            out.insert(shared_from_this());
         
         for (auto observer : observers)     
-            for (auto x :   observer->observe(phase))
-                found.insert(x);
+            for (auto x :   observer->observe())
+                out.insert(x);
 
-        return found;
+        return out;
 
     }
 };
@@ -232,12 +256,12 @@ struct Struct : Member {
         changing->moving_v =  definition;
 
         for (auto x :  observers)
-            x->pre(changing);
+            x->pre(changing,definition,shared_from_this());
 
         members.emplace_back(definition);
 
         for (auto x :   observers)
-            x->post(changing);
+            x->post(changing,definition,shared_from_this());
 
         return definition;
 
@@ -267,12 +291,12 @@ struct Struct : Member {
         changing->clone_v =  shared_from_this();
 
         for (auto x :  observers)
-            x->pre(changing);
+            x->pre(changing, *it, shared_from_this());
 
         members.erase(it);
         
         for (auto x :   observers)
-            x->post(changing);
+            x->post(changing, *it, shared_from_this());
         
         it->get()->type_v->observers.erase(shared_from_this());
 
@@ -374,7 +398,7 @@ struct Buffer : Struct {
 
         for (auto def : curr->members) {
 
-            if (def->type_v == x->clone_v) {
+            if (def->type_v == x) {
             
                 auto ioffset = offset;
             
@@ -396,13 +420,13 @@ struct Buffer : Struct {
 
     }
 
-    void bkp(std::shared_ptr<Member> changing) {
+    void bkp(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp, std::shared_ptr<Member> bkp) {
 
         changing_offsets.clear();
 
         std::cout << "is this each frame for sure ? could keep track of instances" << std::endl;
 
-        find(changing, shared_from_this());
+        find(bkp, shared_from_this());
 
         std::reverse(changing_offsets.begin(), changing_offsets.end());
 
@@ -411,13 +435,11 @@ struct Buffer : Struct {
 
     }
 
-    void remap(std::shared_ptr<Member> changing) {
+    void remap(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp, std::shared_ptr<Member> bkp) {
 
-        int diff =  changing->clone_v->size() - changing->size();
+        int diff =  bkp->size() - changing->size();
 
         if (diff > 0) { // thus ADDING
-
-            std::shared_ptr<Member::Definition> new_def = changing->moving_v;
 
             int last_size = data.size();
 
@@ -462,9 +484,9 @@ struct Buffer : Struct {
 
                 std::move(data.begin()+nsplit, data.begin()+nsplit + segsize  - changing->size(), data.begin()+nsplit + diff);
 
-                if (new_def->def())
-                    for (int i = 0; i < new_def->quantity_v; i++) 
-                        memcpy(&data[nsplit]+new_def->type_v->size()*i, new_def->def(), new_def->type_v->size());
+                if (comp->def())
+                    for (int i = 0; i < comp->quantity_v; i++) 
+                        memcpy(&data[nsplit]+comp->type_v->size()*i, comp->def(), comp->type_v->size());
                 else
                     memset(&data[nsplit], 0, diff);
 
@@ -488,9 +510,9 @@ struct Buffer : Struct {
 
     }
 
-    void pre(std::shared_ptr<Member> changing) override { bkp(changing); }
+    void pre(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp, std::shared_ptr<Member> bkp) override { this->bkp(changing,comp,bkp); }
 
-    void post(std::shared_ptr<Member> changing) override { remap(changing); }
+    void post(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp, std::shared_ptr<Member> bkp) override { remap(changing,comp,bkp); }
 
     void print() {
 
