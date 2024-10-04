@@ -1,4 +1,5 @@
 
+#include <cstdint>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -167,10 +168,10 @@ struct Member : std::enable_shared_from_this<Member>  {
         }
 
     };
+
     std::vector<std::shared_ptr<Definition>> members;
     
     std::shared_ptr<Definition> moving_v = nullptr;
-
 
     virtual ~Member() {
     
@@ -187,12 +188,11 @@ struct Member : std::enable_shared_from_this<Member>  {
         return size;
     }
         
-
     uint32_t stride() { return 0 ; }
     uint32_t footprint() { return size() + stride() ; }
   
-    virtual void pre(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp, std::shared_ptr<Member> bkp) {}
-    virtual void post(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp, std::shared_ptr<Member> bkp) {}
+    virtual void pre(std::shared_ptr<Member> changing) {}
+    virtual void post(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp) {}
 
     std::set<std::shared_ptr<Member>> observe() {
 
@@ -250,18 +250,15 @@ struct Struct : Member {
         // std::cout << name << "[" << footprint() << "] add " << definition->name << "(" << definition->type->name << ":" << definition->type->footprint() << (definition->q > 1 ? "*" + std::to_string(definition->q)  + ":" + std::to_string(definition->footprint_all()) : "") << ")" << std::endl;
 
         std::shared_ptr<Member> changing =  std::make_shared<Member>(*this);
-
         changing->clone_v =  shared_from_this();
 
-        changing->moving_v =  definition;
-
         for (auto x :  observers)
-            x->pre(changing,definition,shared_from_this());
+            x->pre(changing);
 
         members.emplace_back(definition);
 
         for (auto x :   observers)
-            x->post(changing,definition,shared_from_this());
+            x->post(changing,definition);
 
         return definition;
 
@@ -287,16 +284,15 @@ struct Struct : Member {
         auto observers = observe();
 
         std::shared_ptr<Member> changing =  std::make_shared<Member>(*this);
-
         changing->clone_v =  shared_from_this();
 
         for (auto x :  observers)
-            x->pre(changing, *it, shared_from_this());
+            x->pre(changing);
 
         members.erase(it);
         
         for (auto x :   observers)
-            x->post(changing, *it, shared_from_this());
+            x->post(changing, *it);
         
         it->get()->type_v->observers.erase(shared_from_this());
 
@@ -352,6 +348,7 @@ struct Register {
         return s;
         
     }
+
 
     std::shared_ptr<Member> find(const char* name) {
 
@@ -420,13 +417,13 @@ struct Buffer : Struct {
 
     }
 
-    void bkp(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp, std::shared_ptr<Member> bkp) {
+    void bkp(std::shared_ptr<Member> changing) {
 
         changing_offsets.clear();
 
         std::cout << "is this each frame for sure ? could keep track of instances" << std::endl;
 
-        find(bkp, shared_from_this());
+        find(changing->clone_v, shared_from_this());
 
         std::reverse(changing_offsets.begin(), changing_offsets.end());
 
@@ -435,9 +432,9 @@ struct Buffer : Struct {
 
     }
 
-    void remap(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp, std::shared_ptr<Member> bkp) {
+    void remap(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp) {
 
-        int diff =  bkp->size() - changing->size();
+        int diff =  changing->clone_v->size() - changing->size();
 
         if (diff > 0) { // thus ADDING
 
@@ -510,9 +507,9 @@ struct Buffer : Struct {
 
     }
 
-    void pre(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp, std::shared_ptr<Member> bkp) override { this->bkp(changing,comp,bkp); }
+    void pre(std::shared_ptr<Member> changing) override { bkp(changing); }
 
-    void post(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp, std::shared_ptr<Member> bkp) override { remap(changing,comp,bkp); }
+    void post(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp) override { remap(changing,comp); }
 
     void print() {
 
@@ -543,47 +540,22 @@ int main() {
 
     auto buffer = std::make_shared<Buffer>("Buffy");
     
-    buffer->print();
     auto foo = reg.create("foo");
-
-    buffer->print();
-    auto f1 = foo->add<uint8_t>("f1", 1,1,1);
-    buffer->print();
-    f1->type(reg.find<uint8_t>());
-    f1->quantity(4);
-    f1->range(9,9,9);
-
-    buffer->print();
+    foo->add<uint8_t>("val",1,1,1);
     auto bar = reg.create("bar");
-    buffer->print();
-    bar->add<uint8_t,2>("b1", 2,2,2);;
-
-    buffer->print();
+    bar->add<uint8_t>("val",2,2,2);
     auto zee = reg.create("zee");
+    zee->add<uint8_t>("val",3,3,3);
 
-    buffer->print();
-    buffer->add(foo, 2, "foo1"); 
-
-    buffer->print();
-    buffer->add(zee, 2, "zee1");
-
-    buffer->print();
-    buffer->add(bar, 2, "bar1");
-
-    buffer->print();
-    foo->add<uint8_t, 3>("f1", 4,4,4);
-
-    buffer->print();
-    zee->add<uint8_t,2>("z1", 123,123,123);
-
-    buffer->print();
-    zee->add<uint8_t>("z2");
+    auto test = reg.create("test");
+    test->add(foo, 2);
+    auto barval = test->add(bar, 2);
+    test->add(zee, 2);
     
-    buffer->print();
-    buffer->add(foo); 
-    
-    buffer->print();
-    buffer->remove("zee1");
+    buffer->add(test, 2);
+
+    barval->quantity(1);
+
     buffer->print();
 
     std::cout <<"DONE\n";
