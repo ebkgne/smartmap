@@ -1,4 +1,5 @@
 
+#include <algorithm>
 #include <cstdint>
 #include <iostream>
 #include <string>
@@ -45,6 +46,8 @@ void set(TypeIndex id, char* ptr, float val) {
 
 }
 
+struct Definition;
+
 struct Member : std::enable_shared_from_this<Member>  {
 
     std::string name;
@@ -55,13 +58,13 @@ struct Member : std::enable_shared_from_this<Member>  {
 
     std::shared_ptr<Member> clone_v = nullptr;
 
-    struct Definition {
+    struct Definition : std::enable_shared_from_this<Definition>{
         
         std::shared_ptr<Member> type_v;
-        std::string name;
+        std::string label;
         int quantity_v;
     
-        Definition( std::shared_ptr<Member> type, const char* name = nullptr, int q = 1, float from = 0, float to = 0, float def = 0) : name(name?name:""), quantity_v(q) {
+        Definition( std::shared_ptr<Member> type, const char* name = nullptr, int q = 1, float from = 0, float to = 0, float def = 0) : label(name?name:type->name), quantity_v(q) {
 
             this->type(type);
 
@@ -72,7 +75,7 @@ struct Member : std::enable_shared_from_this<Member>  {
         std::vector<char> rangedef; 
         std::vector<char> temprangedef; 
 
-        uint32_t footprint_all() { return type_v->size() *  quantity_v ; }
+        uint32_t footprint_all() { return type_v->footprint() *  quantity_v ; }
 
         void type(std::shared_ptr<Member> type) {
 
@@ -81,11 +84,7 @@ struct Member : std::enable_shared_from_this<Member>  {
 
         }
 
-        void quantity(int value) {
-
-            quantity_v = value;
-
-        }
+        bool quantity(int q);
 
         void range(float from, float to, float def) {
 
@@ -214,8 +213,12 @@ struct Data : Member {
     
     static inline std::map<TypeIndex, int> type_sizes;
 
-    Data(const TypeIndex& type)  { 
+    Data(const TypeIndex& type, const char* name)  { 
+
         type_v = type; 
+
+        this->name = name ? name : type_v.pretty_name();
+
     }
 
     int size() override {
@@ -232,7 +235,7 @@ struct TYPE : TypeIndex {
         if (Data::type_sizes.find(typeid(T)) == Data::type_sizes.end())
             Data::type_sizes[typeid(T)] = sizeof(T);
 
-        // if (std::is_arithmetic<T>::value) Data::tofloat[typeid(T)] = [&](void* ptr){ return (float)(*(T*)ptr); }; // this wont compile
+        // if (std::is_arithmetic<T>::value) Data::tofloat[typeid(T)] = [&](void* ptr){ return (float)(*(T*)ptr); }; // this wont compile :'( plz hlp
 
     }
 };
@@ -273,10 +276,35 @@ struct Struct : Member {
         
     }
     
+    bool quantity(std::shared_ptr<Definition> definition, int q) {
+
+        auto observers = observe();
+
+        std::shared_ptr<Member> changing =  std::make_shared<Member>(*this);
+        changing->clone_v =  shared_from_this();
+        for (auto &m : changing->members) 
+            if (m.get() == definition.get()){
+                auto original = m;
+                m = std::make_shared<Member::Definition>(*m.get());  // is this really deleted at the end of this method ?
+                m.get()->type_v->clone_v = original->type_v->clone_v; // does this help ?
+            }
+
+        for (auto x :  observers)
+            x->pre(changing);
+        
+        definition->quantity_v = q;
+        
+        for (auto x :   observers)
+            x->post(changing, definition);
+
+        return true;
+
+    }
+
     bool remove(const std::string& memberName) {
 
         auto it = std::find_if(members.begin(), members.end(),
-            [&memberName](const std::shared_ptr<Definition>& def) { return def->name == memberName; });
+            [&memberName](const std::shared_ptr<Definition>& def) { return def->label == memberName; });
 
         if (it == members.end()) 
             return false;
@@ -315,12 +343,9 @@ struct Register {
 
     std::shared_ptr<Data> create(const TypeIndex& type, const char* name = nullptr) {
 
-        auto d = std::make_shared<Data>(type);
-
-        d->name = (name?name:d->type_v.name());
+        auto d = std::make_shared<Data>(type, name);
 
         // std::cout << "create " << d->quantity_v << " " << d->name << (d->quantity_v>1?"s":"")<<  " " << Type(type).name() << " - " << Type(type).size() << "\n";
-        
 
         datatypes.insert(d);
 
@@ -438,56 +463,75 @@ struct Buffer : Struct {
 
         if (diff > 0) { // thus ADDING
 
-            int last_size = data.size();
+            int last_cursor = data.size();
 
             data.resize(footprint());
             
-            int end = data.size();
+            int new_cursor = data.size();
             
-            for (auto x : changing_offsets) {
+            for (auto offset : changing_offsets) {
+            
+                std::cout <<  "---------"  <<  std::endl;
 
-                int segsize = last_size-x;
+                int segsize = last_cursor - offset;
 
-                end -= diff+ segsize;
+                new_cursor -= diff + segsize;
+
+                std::cout 
                 
-                // print();
-
-                // std::cout <<  "found "  <<  x.stl.back().def->name 
+                <<  " move1 "  <<  offset
                 
-                // <<  " move "  <<  x.offset
+                <<  " to "  <<  last_cursor 
+
+                <<  " @ "  <<  new_cursor  
                 
-                // <<  " to "  <<  last_size 
+                 << std::endl;
 
-                // <<  " @ "  <<  end  
+                std::move(data.begin()+offset, data.begin()+last_cursor, data.begin()+new_cursor);
                 
-                //  << std::endl;
+                print();
 
-                std::move(data.begin()+x, data.begin()+last_size, data.begin()+end);
+                uint32_t x3 = changing->size(); 
+                uint32_t x4 = new_cursor; 
+                uint32_t x5 = x3 + x4; 
 
+                std::cout 
+                <<  " x3: "  <<  x3
+                <<  " x4: "  <<  x4
+                <<  " x5: "  <<  x5
+                << std::endl;
 
-                int nsplit = end + changing->size();
+                int sub_cursor = new_cursor + changing->size(); // <----- missing comdiff ? 
+
+                std::cout 
                 
-                // print();
-
-                // std::cout 
+                <<  " move2 "  <<  sub_cursor
                 
-                // <<  " move "  <<  nsplit
-                
-                // <<  " to "  <<  nsplit + segsize  - changing->size() 
+                <<  " to "  <<  sub_cursor + segsize  - changing->size() 
 
-                // <<  " @ "  <<   nsplit + diff  
+                <<  " @ "  <<   sub_cursor + diff   // devrait etre : mo2 11 to 12 @ 12 // comp diff is 1
                 
-                //  << std::endl;
+                 << std::endl; // il sait pas localiser le debut du deuxieme split ---^
 
-                std::move(data.begin()+nsplit, data.begin()+nsplit + segsize  - changing->size(), data.begin()+nsplit + diff);
+                std::move(data.begin()+sub_cursor, data.begin()+sub_cursor + segsize  - changing->size(), data.begin()+sub_cursor + diff);
+                
+                print();
+
+                std::cout 
+                
+                <<  " default "  <<  sub_cursor
+                
+                 << std::endl;
 
                 if (comp->def())
                     for (int i = 0; i < comp->quantity_v; i++) 
-                        memcpy(&data[nsplit]+comp->type_v->size()*i, comp->def(), comp->type_v->size());
+                        memcpy(&data[sub_cursor]+comp->type_v->size()*i, comp->def(), comp->type_v->size());
                 else
-                    memset(&data[nsplit], 0, diff);
+                    memset(&data[sub_cursor], 0, diff);
+                
+                print();
 
-                last_size-=segsize;
+                last_cursor-=segsize;
 
 
             }
@@ -532,8 +576,50 @@ std::shared_ptr<Member::Definition> Struct::add(const TypeIndex& type, int quant
 
 }
 
+bool Member::Definition::quantity(int q) {
+
+    std::shared_ptr<Struct> found = nullptr;
+    
+    for (auto x : reg.structtypes) {
+
+        auto it = std::find(x->members.begin(), x->members.end(), shared_from_this()) ;
+
+        if (it != x->members.end()) {
+
+            found = x;
+            
+            break;
+
+        }
+
+    }
+
+
+        
+    auto observers = found->observe();
+
+    std::shared_ptr<Member> changing =  std::make_shared<Member>(*found);
+
+    // auto bkpdefinition = std::make_shared<Definition>(*definition);
+
+    changing->clone_v =  found->shared_from_this();
+
+    for (auto x :  observers)
+        x->pre(changing);
+    
+    quantity_v = q;
+    
+    for (auto x :   observers)
+        x->post(changing, shared_from_this());
+
+    return true;
+
+}
+
 int main() {
     
+    // quantity need to trig a remap 
+
     // remove
 
     // instance ( aka Member::tracking_counter ?)
@@ -554,7 +640,9 @@ int main() {
     
     buffer->add(test, 2);
 
-    barval->quantity(1);
+    // barval->quantity(1);
+
+    test->quantity(barval, 3); // go ds remap
 
     buffer->print();
 
