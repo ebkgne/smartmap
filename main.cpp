@@ -1,10 +1,6 @@
 
-#include <cstdint>
-#include <cstring>
 #include <iostream>
 #include <string>
-#include <sys/types.h>
-#include <type_traits>
 #include <utility>
 #include <vector>
 #include <memory>
@@ -15,15 +11,10 @@
 #include <map>
 
 using TypeIndex = boost::typeindex::type_index;
+
 struct Type { 
 
-    struct Definition {
-
-        int size = 0;
-
-        std::function<float(void*)> tofloat;
-
-    };
+    struct Definition { int size = 0; std::function<float(void*)> tofloat; };
 
     static inline std::map<TypeIndex, Definition> definitions;
 
@@ -47,7 +38,6 @@ struct Type {
     
 };
 
-
 template <typename T>
 struct TYPE : Type { 
     
@@ -57,12 +47,12 @@ struct TYPE : Type {
         
         definitions[id].size = sizeof(T);
 
-        // if (std::is_arithmetic<T>::value) definitions[id].tofloat = [&](void* ptr){ return (float)(*(T*)ptr); }; // ne compile pas, si trouve comment faire, super !
+        // if (std::is_arithmetic<T>::value) definitions[id].tofloat = [&](void* ptr){ return (float)(*(T*)ptr); }; // this wont compile
 
     }
 };
 
-void set(TypeIndex id, char* ptr, float val) {    
+void set(TypeIndex id, char* ptr, float val) { // but hopefully could replace that 
 
     if (id == typeid(float)) 
         (float&)*ptr = val;
@@ -93,10 +83,7 @@ void set(TypeIndex id, char* ptr, float val) {
 
 }
 
-struct Struct;
-struct Clone;
-
-struct Member   {
+struct Member : std::enable_shared_from_this<Member>  {
 
     struct Definition {
         
@@ -155,11 +142,48 @@ struct Member   {
 
         char* from() { return rangedef.size()?rangedef.data():nullptr; }
         char* to() { return rangedef.size()?rangedef.data()+(type_v->size()):nullptr; }
-        char* def();
+        char* def() { 
+
+            if (rangedef.size()) return rangedef.data()+(type_v->size()*2);
+            
+            if (type_v->type_v.id == typeid(Member)) {
+
+                if (!type_v->size())
+                    return nullptr;
+
+                temprangedef.resize(type_v->size());
+
+                int offset = 0;
+
+                for (auto def : type_v->members) 
+
+                    for (int i = 0; i < def->quantity_v; i++) {
+
+                        memcpy(temprangedef.data()+offset, def->def(), def->type_v->size());    
+
+                        offset += def->type_v->size();
+
+                }
+
+                return temprangedef.data();
+
+            }
+
+            return nullptr; 
+            
+        }
 
     };
 
     std::string name;
+
+    virtual ~Member() {
+    
+        if (!clone_v)
+            for (auto def : members) 
+                def->type_v->observers.erase(shared_from_this());
+
+    }
 
     virtual int size() {
         int size = 0;
@@ -172,13 +196,13 @@ struct Member   {
     uint32_t stride() { return 0 ; }
     uint32_t footprint() { return size() + stride() ; }
 
-    std::set<std::shared_ptr<Struct>> observers;
+    std::set<std::shared_ptr<Member>> observers;
 
     std::vector<std::shared_ptr<Definition>> members;
 
     int clone_size = 0;
 
-    Type type_v;
+    Type type_v = TYPE<Member>();
 
     std::shared_ptr<Member> clone_v = nullptr;
 
@@ -191,44 +215,13 @@ struct Member   {
         return c;
 
     }
+  
+    virtual void pre(std::shared_ptr<Member> changing = nullptr) {}
+    virtual void post(std::shared_ptr<Member> changing = nullptr) {}
 
-};
+    std::set<std::shared_ptr<Member>> observe(int phase = 0) {
 
-// struct Clone {
-
-//     std::vector<Definition> members;
-
-//     std::shared_ptr<Member> m = nullptr;
-
-// }
-
-struct Data : Member, std::enable_shared_from_this<Data> {
-
-    Data(const TypeIndex& type)  { 
-        type_v = Type(type); 
-    }
-
-    int size() override {
-        return type_v.size();
-    }
-
-};
-
-struct Struct : Member, std::enable_shared_from_this<Struct> {
-
-    ~Struct() {
-    
-        if (!clone_v)
-            for (auto def : members) 
-                def->type_v->observers.erase(shared_from_this());
-
-    }
-
-    Struct() { type_v = TYPE<Struct>(); }
-
-    virtual std::set<std::shared_ptr<Struct>> observe(int phase = 0) {
-
-        std::set<std::shared_ptr<Struct>> found;
+        std::set<std::shared_ptr<Member>> found;
 
         if (!observers.size()) 
             found.insert(shared_from_this());
@@ -240,8 +233,47 @@ struct Struct : Member, std::enable_shared_from_this<Struct> {
         return found;
 
     }
+};
 
-    std::shared_ptr<Definition> add(std::shared_ptr<Member> type, std::string name, int quantity = 1, float from = 0, float to = 0, float def = 0);
+struct Data : Member {
+
+    Data(const TypeIndex& type)  { 
+        type_v = Type(type); 
+    }
+
+    int size() override {
+        return type_v.size();
+    }
+
+};
+
+struct Struct : Member {
+
+    std::shared_ptr<Definition> add(std::shared_ptr<Member> type, std::string name, int quantity = 1, float from = 0, float to = 0, float def = 0) {
+
+        type->observers.insert(shared_from_this());
+
+        auto observers = observe();
+
+        auto definition = std::make_shared<Definition>(type, name, quantity, from, to, def);
+        
+        // std::cout << name << "[" << footprint() << "] add " << definition->name << "(" << definition->type->name << ":" << definition->type->footprint() << (definition->q > 1 ? "*" + std::to_string(definition->q)  + ":" + std::to_string(definition->footprint_all()) : "") << ")" << std::endl;
+
+        std::shared_ptr<Member> changing =  std::make_shared<Member>(*this);
+        
+        changing->clone_v =  shared_from_this();
+
+        for (auto x :  observers)
+            x->pre(changing);
+
+        members.emplace_back(definition);
+
+        for (auto x :   observers)
+            x->post(changing);
+
+        return definition;
+
+    }
 
     std::shared_ptr<Definition> add(const TypeIndex& type, std::string name, int quantity, float from, float to, float def);
 
@@ -252,8 +284,6 @@ struct Struct : Member, std::enable_shared_from_this<Struct> {
         
     }
     
-    virtual void pre() {}
-    virtual void post() {}
 
 };
 
@@ -335,71 +365,6 @@ struct Register {
 
 };
 
-Register reg;
-
-struct MemberQ { std::shared_ptr<Member::Definition> def; uint32_t eq = 0;};
-
-struct Instance {
-
-    std::vector<MemberQ> stl;
-
-    uint32_t offset = 0;
-
-    Instance(std::shared_ptr<Member::Definition> def) { stl.emplace_back(def); }
-
-    std::string stl_name(int q = 0) {
-
-        std::vector<std::string> names;
-
-        if (q)
-            q = stl.size()-q-1;
-        
-        for (int i = q; i < stl.size(); i++) {
-
-            auto name = stl[i].def->name;
-            if (stl[i].def->quantity_v>1) name += "[" + std::to_string(stl[i].eq) + "]";
-            names.push_back(name);
-            
-        }
-
-        std::string out;
-        for (auto x : names) {
-            
-            out += x;
-        
-            if (x!=names.back())
-                out += "::";
-            
-        }
-
-        return out;
-
-    }
-
-    void each(std::function<void(Instance&)> cb);
-
-    Instance& eq(int id) {
-
-        auto &mq = stl.back();
-
-        if (id >= mq.def->quantity_v) {
-
-            // std::cout << << id << " >= " << mq.def->quantity_v << " (" << mq.def->name << ") ";
-        
-            return *this;
-        
-        }
-
-        offset += mq.def->type_v->footprint()*(id-mq.eq);
-
-        mq.eq = id;
-        
-        return *this;
-
-    }
-
-};
-
 
 struct Buffer : Struct {
 
@@ -409,15 +374,151 @@ struct Buffer : Struct {
 
     std::vector<char> data;
 
-    std::vector<Instance> poss;
+    std::vector<int> changing_offsets;
 
-    void bkp();
+    void find(std::shared_ptr<Member> x, std::shared_ptr<Member> curr = nullptr, int offset= 0) {
 
-    void remap();
+        if (!curr)
+            curr = shared_from_this();
 
-    void pre() override { bkp(); }
+        for (auto def : curr->members) {
 
-    void post() override { remap(); }
+            if (def->type_v == x->clone_v) {
+            
+                auto ioffset = offset;
+            
+                for (int i = 0; i < def->quantity_v; i++) {
+        
+                    changing_offsets.emplace_back(ioffset);
+
+                    ioffset+=def->type_v->footprint();
+
+                }
+
+            }
+
+            find(x,def->type_v,offset);
+
+            offset += def->footprint_all();
+
+        }
+
+    }
+
+    void bkp(std::shared_ptr<Member> changing) {
+
+        changing_offsets.clear();
+
+        find(changing);
+
+        std::reverse(changing_offsets.begin(), changing_offsets.end());
+
+        if (!changing_offsets.size())
+            changing_offsets = {0};
+
+    }
+
+    void remap(std::shared_ptr<Member> changing) {
+
+        int diff =  changing->clone_v->size() - changing->size();
+
+        if (diff >0) { // thus ADDING
+
+            std::shared_ptr<Member::Definition> new_def = nullptr;
+
+            // for (auto x : changing->clone_v->members) {
+
+            //     bool found = false;
+
+            //     for (auto y : changing->members) 
+
+            //         if (x == y) {
+
+            //             found = true;
+            //             break;
+
+            //     }
+
+            //     if (!found){
+
+            //         new_def = x;
+
+            //         break;
+
+            //     }
+                
+            // }
+
+            new_def = changing->clone_v->members.back();
+
+            int last_size = data.size();
+
+            data.resize(footprint());
+            
+            int end = data.size();
+            
+            for (auto x : changing_offsets) {
+
+                int segsize = last_size-x;
+
+                end -= diff+ segsize;
+                
+                // print();
+
+                // std::cout <<  "found "  <<  x.stl.back().def->name 
+                
+                // <<  " move "  <<  x.offset
+                
+                // <<  " to "  <<  last_size 
+
+                // <<  " @ "  <<  end  
+                
+                //  << std::endl;
+
+                std::move(data.begin()+x, data.begin()+last_size, data.begin()+end);
+
+
+                int nsplit = end + changing->size();
+                
+                // print();
+
+                // std::cout 
+                
+                // <<  " move "  <<  nsplit
+                
+                // <<  " to "  <<  nsplit + segsize  - changing->size() 
+
+                // <<  " @ "  <<   nsplit + diff  
+                
+                //  << std::endl;
+
+                std::move(data.begin()+nsplit, data.begin()+nsplit + segsize  - changing->size(), data.begin()+nsplit + diff);
+
+                if (new_def->def())
+                    for (int i = 0; i < new_def->quantity_v; i++) 
+                        memcpy(&data[nsplit]+new_def->type_v->size()*i, new_def->def(), new_def->type_v->size());
+                else
+                    memset(&data[nsplit], 0, diff);
+
+                last_size-=segsize;
+
+
+            }
+        
+        }else if (diff <0) { // thus REMOVING
+
+
+            // stdmove
+
+            data.resize(footprint());
+
+        }
+
+    }
+
+    void pre(std::shared_ptr<Member> changing = nullptr) override { bkp(changing); }
+
+    void post(std::shared_ptr<Member> changing = nullptr) override { remap(changing); }
 
     void print() {
 
@@ -432,259 +533,47 @@ struct Buffer : Struct {
 
 };
 
+
+Register reg;
+
 std::shared_ptr<Member::Definition> Struct::add(const TypeIndex& type,std::string name, int quantity, float from, float to, float def) {
 
     return add(reg.find(type), name, quantity, from, to, def);
 
 }
 
-std::shared_ptr<Member::Definition> Struct::add(std::shared_ptr<Member> type,std::string newname, int quantity, float from, float to, float def) {
-
-    type->observers.insert(shared_from_this());
-
-    auto observers = observe();
-
-    auto definition = std::make_shared<Definition>(type, newname, quantity, from, to, def);
-    
-    // std::cout << name << "[" << footprint() << "] add " << definition->name << "(" << definition->type->name << ":" << definition->type->footprint() << (definition->q > 1 ? "*" + std::to_string(definition->q)  + ":" + std::to_string(definition->footprint_all()) : "") << ")" << std::endl;
-
-    reg.changing = nullptr;
-    reg.changing =  std::make_shared<Member>(*this);
-    reg.changing->clone_v =  shared_from_this();
-
-    for (auto x :   observers)
-        x->pre();
-
-    members.emplace_back(definition);
-
-    for (auto x :   observers)
-        x->post();
-
-    return definition;
-
-}
-
-char* Member::Definition::def() { 
-
-    if (rangedef.size()) return rangedef.data()+(type_v->size()*2);
-    
-    if (type_v->type_v.id == typeid(Struct)) {
-
-        if (!type_v->size())
-            return nullptr;
-
-        temprangedef.resize(type_v->size());
-
-        int offset = 0;
-
-        for (auto def : type_v->members) 
-
-            for (int i = 0; i < def->quantity_v; i++) {
-
-                memcpy(temprangedef.data()+offset, def->def(), def->type_v->size());    
-
-                offset += def->type_v->size();
-
-        }
-
-        return temprangedef.data();
-
-    }
-
-    return nullptr; 
-    
-}
-
-void Instance::each(std::function<void(Instance&)> cb) { 
-
-    int offset= 0;
-
-    for (auto def : stl.back().def->type_v->members) {
-
-        Instance inst(*this);
-
-        inst.stl.emplace_back(def);
-
-        inst.offset += offset;
-        
-        for (int i = 0; i < def->quantity_v; i++) {
-
-            inst.eq(i);
-
-            inst.each(cb);
-
-            cb(inst);
-            
-        }
-
-        offset += def->footprint_all();
-
-    }
-
-}
-
-void Buffer::bkp() {
-
-    poss.clear();
-
-    Instance inst(std::make_shared<Member::Definition>(shared_from_this()));
-
-    inst.each([&](Instance& inst) {
-
-        if (inst.stl.back().def->type_v == reg.changing->clone_v){
-        
-            poss.emplace_back(inst);
-        
-        }
-
-    });
-
-    std::reverse(poss.begin(), poss.end());
-
-    if (!poss.size())
-        poss = {inst};
-    
-    // std::cout <<  "bkp "  <<  name << " - " << size()  << std::endl;
-
-}
-
-
-void Buffer::remap() {
-
-    std::shared_ptr<Member::Definition> new_def = nullptr;
-
-    // for (auto x : reg.changing->clone_v->members) {
-
-    //     bool found = false;
-
-    //     for (auto y : reg.changing->members) 
-
-    //         if (x == y) {
-
-    //             found = true;
-    //             break;
-
-    //     }
-
-    //     if (!found){
-
-    //         new_def = x;
-
-    //         break;
-
-    //     }
-        
-    // }
-
-    new_def = reg.changing->clone_v->members.back();
-
-    int diff =  reg.changing->clone_v->size() - reg.changing->size();
-
-    int last_size = data.size();
-
-    data.resize(footprint());
-    
-    int end = data.size();
-    
-    
-    for (auto x : poss) {
-
-        int segsize = last_size-x.offset;
-
-        end -= diff+ segsize;
-        
-        // print();
-
-        // std::cout <<  "found "  <<  x.stl.back().def->name 
-        
-        // <<  " move "  <<  x.offset
-        
-        // <<  " to "  <<  last_size 
-
-        // <<  " @ "  <<  end  
-        
-        //  << std::endl;
-
-        std::move(data.begin()+x.offset, data.begin()+last_size, data.begin()+end);
-
-
-        int nsplit = end + reg.changing->size();
-        
-        // print();
-
-        // std::cout 
-        
-        // <<  " move "  <<  nsplit
-        
-        // <<  " to "  <<  nsplit + segsize  - reg.changing->size() 
-
-        // <<  " @ "  <<   nsplit + diff  
-        
-        //  << std::endl;
-
-        std::move(data.begin()+nsplit, data.begin()+nsplit + segsize  - reg.changing->size(), data.begin()+nsplit + diff);
-
-        // print();
-
-        if (new_def->def())
-            for (int i = 0; i < new_def->quantity_v; i++) 
-                memcpy(&data[nsplit]+new_def->type_v->size()*i, new_def->def(), new_def->type_v->size());
-        else
-            memset(&data[nsplit], 123, diff);
-
-        // print();
-        last_size-=segsize;
-
-
-    }
-
-
-    // std::cout <<  "rempa "  <<  name << " - " << size()  << std::endl;
-
-}
 
 int main() {
-
-
-
-
 
     auto buffer = std::make_shared<Buffer>("Buffy");
     
     auto foo = reg.create("foo");
-    auto f1 = foo->add<uint8_t>("f1", 1,1,1);
 
-    f1->type(reg.find<uint16_t>());
+    auto f1 = foo->add<uint8_t>("f1", 1,1,1);
+    f1->type(reg.find<uint8_t>());
     f1->quantity(4);
     f1->range(9,9,9);
 
     auto bar = reg.create("bar");
     bar->add<uint8_t,2>("b1", 2,2,2);;
-    bar->members.back()->range(8, 8, 8);
 
     auto zee = reg.create("zee");
-    zee->add<uint8_t,2>("z1", 3,3,3);
 
-    // test 1 : foo1 + foo2 -> add f2 to Foo
-    // test 2 : foo[2] -> add f2 to Foo
-    // test 3 : foo[5] -> add f2 to Foo
-    // test 4:  foo1 + bar1 -> add f2 to Foo
-    // test 5 : resize f1
-    // test 6 : resize Foo
+    buffer->add(foo, "foo1", 2); 
 
-    // move rrange to def
-    // finish range in ctor(add)
+    buffer->add(zee, "zee1", 2);
 
-    buffer->add(foo, "foo1", 2); // notcalling def
-    // buffer->data = {7};
     buffer->add(bar, "bar1", 2);
 
-    // // buffer->data = {5,6};
-    // buffer->print();
     foo->add<uint8_t, 3>("f1", 4,4,4);
 
+    zee->add<uint8_t,2>("z1", 123,123,123);
+
+    zee->add<uint8_t>("z2");
+    
+    buffer->add(foo, "foo2", 1); 
+    
     buffer->print();
-    // std::cout <<  "-------- "  <<  std::endl;
 
     std::cout <<"DONE\n";
 
