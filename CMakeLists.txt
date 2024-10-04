@@ -10,135 +10,17 @@ find_package(OpenGL REQUIRED)
 
 add_executable( smartmap
 
-src/log.cpp
+# src/log.cpp
 
 main.cpp
 
 # src/test.cpp
 
-src/folder.cpp
-src/file.cpp
-src/json.cpp
-src/image.cpp
+# src/folder.cpp
+# src/file.cpp
+# src/json.cpp
+# src/image.cpp
 
-src/thread.cpp
-src/messagequeue.cpp
-
-vendors/gl3w/src/gl3w.c
-
-src/node.cpp
-src/member.cpp
-src/instance.cpp
-
-src/vbo.cpp
-src/ubo.cpp
-src/output.cpp
-
-src/texture.cpp
-src/framebuffer.cpp
-src/builder.cpp
-src/shader.cpp
-src/window.cpp
-
-src/open.cpp
-src/save.cpp
-src/engine.cpp
-
-src/ndi.cpp
-
-
-src/callbacks.cpp
-src/editor.cpp
-src/editors.cpp
-
-
-src/effector.cpp
-src/model.cpp
-
-src/remap.cpp
-
-src/layer.cpp
-src/fps.cpp
-src/drawcall.cpp
-src/atlas.cpp
-
-src/tree.cpp
-
-src/gui.cpp
-src/widgets.cpp
-vendors/imgui/imgui.cpp
-vendors/imgui/imgui_tables.cpp
-vendors/imgui/imgui_widgets.cpp
-vendors/imgui/imgui_demo.cpp
-vendors/imgui/imgui_draw.cpp
-vendors/imgui/backends/imgui_impl_glfw.cpp
-vendors/imgui/backends/imgui_impl_opengl3.cpp
-vendors/ImGuiColorTextEdit/TextEditor.cpp
-
-
-src/artnet.cpp
-vendors/ofxLibArtnet/artnet/artnet.c
-vendors/ofxLibArtnet/artnet/misc.c
-vendors/ofxLibArtnet/artnet/network.c
-vendors/ofxLibArtnet/artnet/receive.c
-vendors/ofxLibArtnet/artnet/tod.c
-vendors/ofxLibArtnet/artnet/transmit.c
-vendors/ofxLibArtnet/ofxLibArtnet.cpp
-
-vendors/tinyexpr/tinyexpr.cpp
-
-vendors/RectangleBinPack/Rect.cpp
-vendors/RectangleBinPack/MaxRectsBinPack.cpp
-
-
-vendors/ft/src/base/ftver.rc
-vendors/ft/src/autofit/autofit.c
-vendors/ft/src/base/ftbase.c
-vendors/ft/src/base/ftbbox.c
-vendors/ft/src/base/ftbdf.c
-vendors/ft/src/base/ftbitmap.c
-vendors/ft/src/base/ftcid.c
-vendors/ft/src/base/ftfstype.c
-vendors/ft/src/base/ftgasp.c
-vendors/ft/src/base/ftglyph.c
-vendors/ft/src/base/ftgxval.c
-vendors/ft/src/base/ftinit.c
-vendors/ft/src/base/ftmm.c
-vendors/ft/src/base/ftotval.c
-vendors/ft/src/base/ftpatent.c
-vendors/ft/src/base/ftpfr.c
-vendors/ft/src/base/ftstroke.c
-vendors/ft/src/base/ftsynth.c
-vendors/ft/src/base/fttype1.c
-vendors/ft/src/base/ftwinfnt.c
-vendors/ft/src/bdf/bdf.c
-vendors/ft/src/bzip2/ftbzip2.c
-vendors/ft/src/cache/ftcache.c
-vendors/ft/src/cff/cff.c
-vendors/ft/src/cid/type1cid.c
-vendors/ft/src/gzip/ftgzip.c
-vendors/ft/src/lzw/ftlzw.c
-vendors/ft/src/pcf/pcf.c
-vendors/ft/src/pfr/pfr.c
-vendors/ft/src/psaux/psaux.c
-vendors/ft/src/pshinter/pshinter.c
-vendors/ft/src/psnames/psnames.c
-vendors/ft/src/raster/raster.c
-vendors/ft/src/sdf/sdf.c
-vendors/ft/src/sfnt/sfnt.c
-vendors/ft/src/smooth/smooth.c
-vendors/ft/src/svg/svg.c
-vendors/ft/src/truetype/truetype.c
-vendors/ft/src/type1/type1.c
-vendors/ft/src/type42/type42.c
-vendors/ft/src/winfonts/winfnt.c
-
-
-vendors/ft/src/base/ftdebug.c
-vendors/ft/src/base/ftsystem.c
-
-# vendors/ft/builds/windows/ftdebug.c
-# vendors/ft/builds/windows/ftsystem.c
 
 
 )

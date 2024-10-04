@@ -126,8 +126,8 @@ struct Type {
 template <typename T>
 struct TYPE : Type { TYPE() { id = typeid(T); sizes[id] = {sizeof(T)}; } };
 
-struct Member;
-struct MemberQ { Member* m; uint32_t eq = 0; uint32_t q = 1; };
+// struct Member;
+// struct MemberQ { Member* m; uint32_t eq = 0; uint32_t q = 1; };
 
 
 struct Stack {  };
