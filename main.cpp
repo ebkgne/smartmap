@@ -449,29 +449,34 @@ struct Buffer : Struct {
 
         changing_offsets.clear();
 
-        std::cout << "is this each frame for sure ? could keep track of instances" << std::endl;
-
-        std::cout << "looking for : " << comp->label << " in " << changing->name << "\n";
+        // std::cout << "looking for : " << comp->label << " in " << changing->name << "\n";
 
         if (changing->clone_v != shared_from_this())
-           find(changing->clone_v, {shared_from_this()});
+            find(changing->clone_v, {shared_from_this()});
 
         if (!changing_offsets.size())
             changing_offsets = {footprint()};
+
         else{
-            if (changing_offsets[0] < footprint()){
+
+            if (changing_offsets[0] < footprint()) {
+                
                 int o = 0;
+
                 for (auto m : changing->members) {
+
                     if (m->type_v.get() == comp->type_v.get())
                         break;
+
                     else
                         o += m->footprint_all();
+
                 }
-                // int s = comp->footprint_all();
                 
                 for (auto &x : changing_offsets) 
                     x += changing->footprint()-o;
             }
+
         }
 
         std::reverse(changing_offsets.begin(), changing_offsets.end());
@@ -489,75 +494,72 @@ struct Buffer : Struct {
 
         int diff =  changing->clone_v->size() - changing->size();
 
-            int last_cursor = data.size();
+        int last_cursor = data.size();
 
-            data.resize(footprint());
-            
-            int new_cursor = data.size();
-            int i = 0;//changing_offsets.size()-1;
-            for (auto offset : changing_offsets) {
-
-                if (offset > footprint()-1)
-                    return;
-            
-                std::cout <<  "---------"  <<  std::endl;
-
-                int segsize = last_cursor - offset;
-
-                new_cursor -= segsize;
-
-                if (offset != last_cursor) {
-
-                    std::cout 
-                    
-                    <<  " move1 "  <<  offset
-                    
-                    <<  " to "  <<  last_cursor-(diff*i) 
-
-                    <<  " @ "  <<  new_cursor  
-                    
-                    << std::endl;
-
-                    std::move(data.begin()+offset, data.begin()+last_cursor-(diff*i), data.begin()+new_cursor);
-                    
-                    print();
-
-                    auto changingsize = changing->size();
-                    auto compall = comp->footprint_all();
-                    auto compsize = comp->type_v->footprint();
-                    
-                    print();
+        data.resize(footprint());
         
-                }
-                
-                new_cursor-=diff;
+        int new_cursor = data.size();
+
+        for (auto offset : changing_offsets) {
+
+            if (offset > footprint()-1)
+                return;
+        
+            std::cout <<  "---------"  <<  std::endl;
+
+            int segsize = last_cursor - offset;
+
+            new_cursor -= segsize;
+
+            if (offset != last_cursor) {
 
                 std::cout 
                 
-                <<  " default "  <<  new_cursor
+                <<  " move1 "  <<  offset
                 
-                 << std::endl;
+                <<  " to "  <<  last_cursor 
 
-                if (comp->def()) {
+                <<  " @ "  <<  new_cursor  
+                
+                << std::endl;
 
-                    auto q = comp->quantity_v;
-                    if (comp->clone_v)
-                        q = comp->clone_v->quantity_v-q;
-                    for (int i = 0; i < q; i++) {
-                        memcpy(&data[new_cursor]+comp->type_v->size()*i, comp->def(), comp->type_v->size());
-                        print();
-                    }
-                }else
-                    memset(&data[new_cursor], 0, diff);
+                std::move(data.begin()+offset, data.begin()+last_cursor, data.begin()+new_cursor);
                 
                 // print();
 
-                last_cursor-=segsize;
-
-                // i++;
-
+                // auto changingsize = changing->size();
+                // auto compall = comp->footprint_all();
+                // auto compsize = comp->type_v->footprint();
+                
+                // print();
+    
             }
+            
+            new_cursor-=diff;
 
+            std::cout 
+            
+            <<  " default "  <<  new_cursor
+            
+            << std::endl;
+
+            if (comp->def()) {
+
+                auto q = comp->quantity_v;
+                if (comp->clone_v)
+                    q = comp->clone_v->quantity_v-q;
+                for (int i = 0; i < q; i++) {
+                    memcpy(&data[new_cursor]+comp->type_v->size()*i, comp->def(), comp->type_v->size());
+                    // print();
+                }
+            }else
+                memset(&data[new_cursor], 0, diff);
+            
+
+            last_cursor-=segsize;
+
+
+        }
 
     }
 
@@ -603,14 +605,10 @@ bool Member::Definition::quantity(int q) {
         }
 
     }
-
-
         
     auto observers = found->observe();
 
     std::shared_ptr<Member> changing =  std::make_shared<Member>(*found);
-
-    // auto bkpdefinition = std::make_shared<Definition>(*definition);
 
     changing->clone_v =  found->shared_from_this();
 
@@ -627,60 +625,61 @@ bool Member::Definition::quantity(int q) {
 }
 
 int main() {
-    
-    // quantity need to trig a remap 
 
     // remove
 
     // instance ( aka Member::tracking_counter ?)
 
+    
+    auto aa = reg.create("aa");
+    aa->add<uint8_t,2>("A", 1,1,1);
+    
+    auto bb = reg.create("bb");
+    bb->add<uint8_t,2>("B", 2,2,2);
+    
+    auto cc = reg.create("cc");
+    cc->add<uint8_t,2>("C", 3,3,3);
+    
+    auto trick = reg.create("trick");
+    auto test = reg.create("test");
+    test->add(aa, 2);
+    test->add(trick, 2);
+    test->add(bb, 2);
+    test->add(cc, 2);
+
     auto buffer = std::make_shared<Buffer>("Buffy");
+    buffer->add(test,2);
+
+    buffer->print();
     
-    
-    buffer->print();
-    auto foo = reg.create("foo");
+    buffer->data = {
 
-    buffer->print();
-    auto f1 = foo->add<uint8_t>("f1", 1,1,1);
-    buffer->print();
-    f1->type(reg.find<uint8_t>());
-    f1->quantity(4);
-    f1->range(9,9,9);
+        1,1, 1,1, 2,2, 2,2, 3,3, 3,3   ,  1,1, 1,1, 2,2, 2,2, 3,3, 3,3 
 
-    buffer->print();
-    auto bar = reg.create("bar");
-    buffer->print();
-    bar->add<uint8_t,2>("b1", 2,2,2);;
-
-    buffer->print();
-    auto zee = reg.create("zee");
-
-    buffer->print();
-    buffer->add(foo, 2, "foo1"); 
-
-    buffer->print();
-    buffer->add(zee, 2, "zee1");
-
-    buffer->print();
-    buffer->add(bar, 2, "bar1");
-
-    buffer->print();
-    foo->add<uint8_t, 3>("f1", 4,4,4);
-
-    buffer->print();
-    zee->add<uint8_t,2>("z1", 123,123,123);
-
-    buffer->print();
-    zee->add<uint8_t>("z2");
+    };
     
     buffer->print();
-    buffer->add(foo); 
     
-    buffer->print();
-    buffer->remove("zee1");
-    buffer->print();
+    trick->add<uint8_t,2>("T", 4,4,4);
+
+    auto dd = reg.create("dd");
+    dd->add<uint8_t,2>("D", 5,5,5);
 
 
-    std::cout <<"DONE\n";
+    buffer->print();
+
+    // offsets_list.clear()
+
+    // how to find before change
+
+    // changing 2 x dd(2) @ x pos in test
+
+    // if test == buffer mainoffset = {buffer};
+
+    // else for testinst : buffer  mainoffset . push ( testinstoff )
+
+    // if cant find dd(comp) in test comp_offset = { (test.footprint || posintest)}
+
+    // else comp_offset = dd.offsetintest + dd.old_size
 
 }
