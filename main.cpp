@@ -261,7 +261,7 @@ struct Struct : Member {
         members.emplace_back(definition);
 
         for (auto x :   observers)
-            x->post(0,compoffset,compsize, defval, definition->quantity_v);
+            x->post(definition->quantity_v,compoffset,compsize, defval, definition->quantity_v);
 
         return definition;
 
@@ -454,7 +454,7 @@ struct Buffer : Struct {
         data.resize(footprint());
         auto new_cursor = footprint();
 
-        auto comp_fullsize = compsize * q;
+        auto comp_fullsize = compsize * diff;
 
         std::cout << "old_cursor: " << old_cursor << "\n"  ;
         std::cout << "new_cursor: " << new_cursor << "\n"  ;
@@ -506,7 +506,7 @@ struct Buffer : Struct {
             << std::endl;
         
             if (def) 
-                for (int i = 0; i < q; i++) 
+                for (int i = 0; i < diff; i++) 
                     memcpy(&data[new_cursor]+i*compsize, def, compsize);
 
             else
@@ -541,12 +541,6 @@ std::shared_ptr<Member::Definition> Struct::add(const TypeIndex& type, int quant
 
 int main() {
 
-    // q
-
-    // 1 1 2 2 3 3 3 3 3 3 1 1 2 2 3 3 3 3 3 3 // should be that
-
-    // 1 1 2 2 3 3 1 1 2 2 3 3 0 0 0 0 0 0 0 0 
-
     // remove
 
     // instance ( aka Member::tracking_counter ?)
@@ -562,23 +556,23 @@ int main() {
     
     auto trick = reg.create("trick");
 
-    // auto t1 = reg.create("t1");
-    // t1->add<uint8_t>("B", 21,21,21);
-    // trick->add(t1);
-    // auto t2 = reg.create("t2");
-    // auto t21 = reg.create("t21");
-    // t21->add<uint8_t>("B", 121,121,121);
-    // t2->add(t21);
-    // auto t22 = reg.create("t22");
-    // t22->add<uint8_t>("B", 122,122,122);
-    // t2->add(t22);
-    // auto t23 = reg.create("t23");
-    // t23->add<uint8_t>("B", 123,123,123);
-    // t2->add(t23);
-    // trick->add(t2);
-    // auto t3 = reg.create("t3");
-    // t3->add<uint8_t>("B", 23,23,23);
-    // trick->add(t3);
+    auto t1 = reg.create("t1");
+    t1->add<uint8_t>("B", 21,21,21);
+    trick->add(t1);
+    auto t2 = reg.create("t2");
+    auto t21 = reg.create("t21");
+    t21->add<uint8_t>("B", 121,121,121);
+    t2->add(t21);
+    auto t22 = reg.create("t22");
+    t22->add<uint8_t>("B", 122,122,122);
+    t2->add(t22);
+    auto t23 = reg.create("t23");
+    t23->add<uint8_t>("B", 123,123,123);
+    t2->add(t23);
+    trick->add(t2);
+    auto t3 = reg.create("t3");
+    t3->add<uint8_t>("B", 23,23,23);
+    trick->add(t3);
 
 
     auto test = reg.create("test");
@@ -594,11 +588,12 @@ int main() {
 
     std::cout << "############\n";
 
-    cc->quantity(cval,3);
 
 
-    // trick->add<uint8_t,2>("T", 4,4,4);
+    trick->add<uint8_t,2>("T", 4,4,4);
     // buffer->print();
+    cc->quantity(cval,3);
+    // cc->quantity(cval,1);
 
 
     // auto dd = reg.create("dd");
