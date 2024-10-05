@@ -183,8 +183,8 @@ struct Member : std::enable_shared_from_this<Member>  {
     uint32_t stride() { return 0 ; }
     uint32_t footprint() { return size() + stride() ; }
   
-    virtual void pre(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp) {}
-    virtual void post(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp) {}
+    virtual void pre(std::shared_ptr<Member> changing) {}
+    virtual void post(int compoffset,int compdiff, int compsize, char* def, int q) {}
 
     std::set<std::shared_ptr<Member>> observe() {
 
@@ -241,7 +241,18 @@ struct Struct : Member {
 
         auto observers = observe();
 
+        int compoffset = footprint(); // or pos
+
         auto definition = std::make_shared<Definition>(type, name, quantity, from, to, def);
+
+        auto prout = definition->def();
+        
+        int compdiff = /* old_def->footprint_all()- */definition->footprint_all();
+
+        int compsize2 = definition->footprint_all();
+        int compsize = definition->type_v->footprint();
+        int compq = definition->quantity_v;
+        
         
         std::string cout = this->name+ "[" +std::to_string(footprint()) + "] add  " + definition->label + "(" + definition->type_v->name + ":" + std::to_string(definition->type_v->footprint());
         if (definition->quantity_v > 1)
@@ -249,16 +260,17 @@ struct Struct : Member {
         cout += ")";
         std::cout << cout << std::endl;
 
-        std::shared_ptr<Member> changing =  std::make_shared<Member>(*this);
-        changing->clone_v =  shared_from_this();
-
         for (auto x :  observers)
-            x->pre(changing,definition);
+            x->pre(shared_from_this());
+
+
+        // std::shared_ptr<Member> changing =  std::make_shared<Member>(*this);
+        // changing->clone_v =  shared_from_this();
 
         members.emplace_back(definition);
 
         for (auto x :   observers)
-            x->post(changing,definition);
+            x->post(compoffset,compdiff,compsize, prout, compq);
 
         return definition;
 
@@ -273,57 +285,7 @@ struct Struct : Member {
         
     }
     
-    bool quantity(std::shared_ptr<Definition> definition, int q) {
-
-        auto observers = observe();
-
-        std::shared_ptr<Member> changing =  std::make_shared<Member>(*this);
-        std::shared_ptr<Definition> changingdef =  nullptr;
-        changing->clone_v =  shared_from_this();
-        for (auto &m : changing->members) 
-            if (m.get() == definition.get()){
-                changingdef = std::make_shared<Member::Definition>(*m.get()); 
-                changingdef->clone_v = m;
-                m = changingdef;
-            }
-
-        for (auto x :  observers)
-            x->pre(changing,changingdef);
-        
-        definition->quantity_v = q;
-        
-        for (auto x :   observers)
-            x->post(changing, changingdef);
-
-        return true;
-
-    }
-
-    bool remove(const std::string& memberName) {
-
-        auto it = std::find_if(members.begin(), members.end(),
-            [&memberName](const std::shared_ptr<Definition>& def) { return def->label == memberName; });
-
-        if (it == members.end()) 
-            return false;
-        
-        auto observers = observe();
-
-        std::shared_ptr<Member> changing =  std::make_shared<Member>(*this);
-        changing->clone_v =  shared_from_this();
-
-        for (auto x :  observers)
-            x->pre(changing,*it);
-
-        members.erase(it);
-        
-        for (auto x :   observers)
-            x->post(changing, *it);
-        
-        it->get()->type_v->observers.erase(shared_from_this());
-
-        return true;
-    }
+  
 
 };
 
@@ -490,82 +452,93 @@ struct Buffer : Struct {
 
     }
 
-    void remap(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp) {
+    void remap(int compoffset,int compdiff, int compsize, char* def, int q ) {
 
-        int diff =  changing->clone_v->size() - changing->size();
+        // std::cout << "found "  ;
+        // for (auto x : changing_offsets) 
+        //     std::cout << (unsigned int) (x+compoffset) << " , ";
+        // std::cout << "\n";
 
-        int last_cursor = data.size();
-
+        auto old_cursor = data.size();
         data.resize(footprint());
+        auto new_cursor = footprint();
+
+        auto comp_fullsize = compsize * q;
+
+        // std::cout << "old_cursor: " << old_cursor << "\n"  ;
+        // std::cout << "new_cursor: " << new_cursor << "\n"  ;
+        // std::cout << "compoffset: " << compoffset << "\n"  ;
+        // std::cout << "compdiff: " << compdiff << "\n"  ;
+        // std::cout << "compsize: " << compsize << "\n"  ;
+        // std::cout << "q: " << q << "\n"  ;
+        // std::cout << "comp_fullsize: " << comp_fullsize << "\n"  ;
+
+        // print();
         
-        int new_cursor = data.size();
+        // std::cout << "\n"  ;
 
-        for (auto offset : changing_offsets) {
+        for (auto &offset : changing_offsets) {
 
-            if (offset > footprint()-1)
-                return;
-        
-            std::cout <<  "---------"  <<  std::endl;
+            int segsize = old_cursor - offset-compoffset;
 
-            int segsize = last_cursor - offset;
+            auto told_cursor = old_cursor;
+            
+            if (segsize) {
 
-            new_cursor -= segsize;
+                old_cursor -= segsize;
 
-            if (offset != last_cursor) {
+                new_cursor -= segsize;
 
-                std::cout 
-                
-                <<  " move1 "  <<  offset
-                
-                <<  " to "  <<  last_cursor 
+                // std::cout 
+                // <<  "- segsize "  <<  segsize 
+                // <<  " from "  <<  old_cursor 
+                // <<  " to "  <<  told_cursor 
+                // <<  " @ "  <<  new_cursor  
+                // << std::endl;
 
-                <<  " @ "  <<  new_cursor  
-                
-                << std::endl;
+                std::move(data.begin()+old_cursor, data.begin()+told_cursor, data.begin()+new_cursor); 
 
-                std::move(data.begin()+offset, data.begin()+last_cursor, data.begin()+new_cursor);
-                
                 // print();
 
-                // auto changingsize = changing->size();
-                // auto compall = comp->footprint_all();
-                // auto compsize = comp->type_v->footprint();
-                
-                // print();
-    
             }
-            
-            new_cursor-=diff;
 
-            std::cout 
-            
-            <<  " default "  <<  new_cursor
-            
-            << std::endl;
+            new_cursor -=  comp_fullsize;
 
-            if (comp->def()) {
+            // std::cout 
+            // <<  "- default "  <<  new_cursor
+            // <<  " for "  <<  comp_fullsize
+            // << std::endl;
+        
+            if (def) 
+                for (int i = 0; i < q; i++) 
+                    memcpy(&data[new_cursor]+i*compsize, def, compsize);
 
-                auto q = comp->quantity_v;
-                if (comp->clone_v)
-                    q = comp->clone_v->quantity_v-q;
-                for (int i = 0; i < q; i++) {
-                    memcpy(&data[new_cursor]+comp->type_v->size()*i, comp->def(), comp->type_v->size());
-                    // print();
-                }
-            }else
-                memset(&data[new_cursor], 0, diff);
-            
+            else
+                memset(&data[new_cursor], 55, comp_fullsize);
 
-            last_cursor-=segsize;
-
+            // print();
 
         }
 
     }
 
-    void pre(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp) override { bkp(changing,comp); print(); }
+    void pre(std::shared_ptr<Member> changing) override { 
+        
+        changing_offsets.clear();
 
-    void post(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp) override { remap(changing,comp); }
+        if (changing.get() == this)
+            changing_offsets = {footprint()};
+        else
+            find(changing,{shared_from_this()}); 
+        
+        std::reverse(changing_offsets.begin(), changing_offsets.end());
+
+        // changing_offsets.push_back(0);
+
+    }
+    // void pre(std::shared_ptr<Member> changing) override { bkp(changing);  }
+
+    void post(int compoffset,int compdiff, int compsize, char* def, int q) override { remap(compoffset,compdiff,compsize, def, q); }
 
     void print() {
 
@@ -588,41 +561,7 @@ std::shared_ptr<Member::Definition> Struct::add(const TypeIndex& type, int quant
 
 }
 
-bool Member::Definition::quantity(int q) {
 
-    std::shared_ptr<Struct> found = nullptr;
-    
-    for (auto x : reg.structtypes) {
-
-        auto it = std::find(x->members.begin(), x->members.end(), shared_from_this()) ;
-
-        if (it != x->members.end()) {
-
-            found = x;
-            
-            break;
-
-        }
-
-    }
-        
-    auto observers = found->observe();
-
-    std::shared_ptr<Member> changing =  std::make_shared<Member>(*found);
-
-    changing->clone_v =  found->shared_from_this();
-
-    for (auto x :  observers)
-        x->pre(changing,shared_from_this());
-    
-    quantity_v = q;
-    
-    for (auto x :   observers)
-        x->post(changing, shared_from_this());
-
-    return true;
-
-}
 
 int main() {
 
@@ -632,13 +571,13 @@ int main() {
 
     
     auto aa = reg.create("aa");
-    aa->add<uint8_t,2>("A", 1,1,1);
+    aa->add<uint8_t>("A", 1,1,1);
     
     auto bb = reg.create("bb");
-    bb->add<uint8_t,2>("B", 2,2,2);
+    bb->add<uint8_t>("B", 2,2,2);
     
     auto cc = reg.create("cc");
-    cc->add<uint8_t,2>("C", 3,3,3);
+    cc->add<uint8_t>("C", 3,3,3);
     
     auto trick = reg.create("trick");
     auto test = reg.create("test");
@@ -651,35 +590,21 @@ int main() {
     buffer->add(test,2);
 
     buffer->print();
-    
-    buffer->data = {
 
-        1,1, 1,1, 2,2, 2,2, 3,3, 3,3   ,  1,1, 1,1, 2,2, 2,2, 3,3, 3,3 
 
-    };
-    
-    buffer->print();
-    
     trick->add<uint8_t,2>("T", 4,4,4);
+    buffer->print();
+
+    std::cout << "############\n";
 
     auto dd = reg.create("dd");
-    dd->add<uint8_t,2>("D", 5,5,5);
+    dd->add<uint8_t,3>("D", 5,5,5);
+    trick->add(dd,2);
 
 
     buffer->print();
 
-    // offsets_list.clear()
+    std::cout << "DONE\n";
 
-    // how to find before change
-
-    // changing 2 x dd(2) @ x pos in test
-
-    // if test == buffer mainoffset = {buffer};
-
-    // else for testinst : buffer  mainoffset . push ( testinstoff )
-
-    // if cant find dd(comp) in test comp_offset = { (test.footprint || posintest)}
-
-    // else comp_offset = dd.offsetintest + dd.old_size
 
 }
