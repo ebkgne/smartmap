@@ -574,7 +574,6 @@ int main() {
     t3->add<uint8_t>("B", 23,23,23);
     trick->add(t3);
 
-
     auto test = reg.create("test");
     test->add(aa, 2);
     test->add(trick, 2);
@@ -588,22 +587,32 @@ int main() {
 
     std::cout << "############\n";
 
-
-
     trick->add<uint8_t,2>("T", 4,4,4);
-    // buffer->print();
+
     cc->quantity(cval,3);
-    // cc->quantity(cval,1);
-
-
-    // auto dd = reg.create("dd");
-    // dd->add<uint8_t,3>("D", 5,5,5);
-    // trick->add(dd,2);
-
 
     buffer->print();
 
     std::cout << "DONE\n";
 
+
+// test x2
+
+//     aa x2
+//             ui          1 1
+//     trick x2 <-----------!
+//             t1
+//                 ui      21 
+//             t2
+//                 t21     121
+//                 t22     122
+//                 t23     123
+//             t3
+//                 ui      23
+//             ui x2       4 4
+//     bb x2
+//             ui x2       2 2
+//     cc x2
+//             ui x3       3 3 3
 
 }
