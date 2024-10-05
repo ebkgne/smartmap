@@ -1,8 +1,8 @@
 
 #include <algorithm>
-#include <cstdint>
 #include <iostream>
 #include <string>
+#include <type_traits>
 #include <vector>
 #include <memory>
 #include <set>
@@ -64,6 +64,8 @@ struct Member : std::enable_shared_from_this<Member>  {
         std::string label;
         int quantity_v;
     
+        std::shared_ptr<Definition> clone_v = nullptr;
+        
         Definition( std::shared_ptr<Member> type, const char* name = nullptr, int q = 1, float from = 0, float to = 0, float def = 0) : label(name?name:type->name), quantity_v(q) {
 
             this->type(type);
@@ -107,29 +109,20 @@ struct Member : std::enable_shared_from_this<Member>  {
             if (rangedef.size())
                 return rangedef.data()+(type_v->size());
             
-            static uint64_t ui64 = 9999999999999999999u;
-            static uint32_t ui32 = 65535u;
-            static uint16_t ui16 = 16654u;
-            static uint16_t ui8 = 255u;
+            static uint64_t ui64 = 0xffffffffffffffffu;
+            static int64_t i64   = 0xffffffffffffffff;
+            static double f32    = 0xfffffffffffff;
 
-            static int64_t i64 = 999999999999999999;
-            static int32_t i32 = 65535;
-            static int16_t i16 = 16654;
-            static int16_t i8 = 255;
-
-            static float f16 = 99999999999999999999999999999999999999.9f;
-            static double f32 = 99999999999999999999999999999999999999.9f;
-
-            if (type_v->type_v == typeid(float)) return (char*)&f16;
+            if (type_v->type_v == typeid(float)) return (char*)&f32;
             if (type_v->type_v == typeid(double)) return (char*)&f32;
             if (type_v->type_v == typeid(uint64_t)) return (char*)&ui64;
-            if (type_v->type_v == typeid(uint32_t)) return (char*)&ui32;            
-            if (type_v->type_v == typeid(uint16_t)) return (char*)&ui16;
-            if (type_v->type_v == typeid(uint8_t)) return (char*)&ui8;
+            if (type_v->type_v == typeid(uint32_t)) return (char*)&ui64;            
+            if (type_v->type_v == typeid(uint16_t)) return (char*)&ui64;
+            if (type_v->type_v == typeid(uint8_t)) return (char*)&ui64;
             if (type_v->type_v == typeid(int64_t)) return (char*)&i64;
-            if (type_v->type_v == typeid(int32_t)) return (char*)&i32;            
-            if (type_v->type_v == typeid(int16_t)) return (char*)&i16;
-            if (type_v->type_v == typeid(int8_t)) return (char*)&i8;
+            if (type_v->type_v == typeid(int32_t)) return (char*)&i64;            
+            if (type_v->type_v == typeid(int16_t)) return (char*)&i64;
+            if (type_v->type_v == typeid(int8_t)) return (char*)&i64;
 
             return nullptr;
 
@@ -190,7 +183,7 @@ struct Member : std::enable_shared_from_this<Member>  {
     uint32_t stride() { return 0 ; }
     uint32_t footprint() { return size() + stride() ; }
   
-    virtual void pre(std::shared_ptr<Member> changing) {}
+    virtual void pre(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp) {}
     virtual void post(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp) {}
 
     std::set<std::shared_ptr<Member>> observe() {
@@ -250,13 +243,17 @@ struct Struct : Member {
 
         auto definition = std::make_shared<Definition>(type, name, quantity, from, to, def);
         
-        // std::cout << name << "[" << footprint() << "] add " << definition->name << "(" << definition->type->name << ":" << definition->type->footprint() << (definition->q > 1 ? "*" + std::to_string(definition->q)  + ":" + std::to_string(definition->footprint_all()) : "") << ")" << std::endl;
+        std::string cout = this->name+ "[" +std::to_string(footprint()) + "] add  " + definition->label + "(" + definition->type_v->name + ":" + std::to_string(definition->type_v->footprint());
+        if (definition->quantity_v > 1)
+            cout += "*" + std::to_string(definition->quantity_v)  + ":" + std::to_string(definition->footprint_all());
+        cout += ")";
+        std::cout << cout << std::endl;
 
         std::shared_ptr<Member> changing =  std::make_shared<Member>(*this);
         changing->clone_v =  shared_from_this();
 
         for (auto x :  observers)
-            x->pre(changing);
+            x->pre(changing,definition);
 
         members.emplace_back(definition);
 
@@ -281,21 +278,22 @@ struct Struct : Member {
         auto observers = observe();
 
         std::shared_ptr<Member> changing =  std::make_shared<Member>(*this);
+        std::shared_ptr<Definition> changingdef =  nullptr;
         changing->clone_v =  shared_from_this();
         for (auto &m : changing->members) 
             if (m.get() == definition.get()){
-                auto original = m;
-                m = std::make_shared<Member::Definition>(*m.get());  // is this really deleted at the end of this method ?
-                m.get()->type_v->clone_v = original->type_v->clone_v; // does this help ?
+                changingdef = std::make_shared<Member::Definition>(*m.get()); 
+                changingdef->clone_v = m;
+                m = changingdef;
             }
 
         for (auto x :  observers)
-            x->pre(changing);
+            x->pre(changing,changingdef);
         
         definition->quantity_v = q;
         
         for (auto x :   observers)
-            x->post(changing, definition);
+            x->post(changing, changingdef);
 
         return true;
 
@@ -315,7 +313,7 @@ struct Struct : Member {
         changing->clone_v =  shared_from_this();
 
         for (auto x :  observers)
-            x->pre(changing);
+            x->pre(changing,*it);
 
         members.erase(it);
         
@@ -373,17 +371,6 @@ struct Register {
         return s;
         
     }
-
-
-    std::shared_ptr<Member> find(const char* name) {
-
-        for (const auto& type : structtypes)
-            if (type->name == name)
-                return type;
- 
-        return nullptr;
-
-    }
  
     std::shared_ptr<Member> find(const TypeIndex& type) {
 
@@ -405,6 +392,22 @@ struct Register {
 
 };
 
+static std::string str(std::vector<std::shared_ptr<Member>>& stl) {
+
+    std::string out;
+
+    for (auto x : stl) {
+        
+        out +=  x->name;
+
+        if (x != stl.back()) 
+            out +=  "::";
+
+    }
+
+    return out;
+
+}
 
 struct Buffer : Struct {
 
@@ -414,46 +417,71 @@ struct Buffer : Struct {
 
     std::vector<char> data = {};
 
-    std::vector<int> changing_offsets;
+    std::vector<uint32_t> changing_offsets;
 
-    void find(std::shared_ptr<Member> x, std::shared_ptr<Member> curr , int offset= 0) {
+    void find(std::shared_ptr<Member> x, std::vector<std::shared_ptr<Member>> stl , int offset= 0) {
 
-        for (auto def : curr->members) {
+        // std::cout <<  str(stl) << " " << offset << "\n";
 
-            if (def->type_v == x) {
+        auto m = stl.back();
+        stl.resize(stl.size()+1);
+
+        for (auto def : m->members) {
+
+            stl.back() = def->type_v;
             
-                auto ioffset = offset;
-            
-                for (int i = 0; i < def->quantity_v; i++) {
-        
-                    changing_offsets.emplace_back(ioffset);
+            for (int i = 0; i < def->quantity_v; i++) {
 
-                    ioffset+=def->type_v->footprint();
+                if (def->type_v == x) 
+                    changing_offsets.emplace_back(offset);
 
-                }
-
+                find(x,stl,offset);
+                
+                offset+=def->type_v->footprint();
             }
 
-            find(x,def->type_v,offset);
-
-            offset += def->footprint_all();
 
         }
 
     }
 
-    void bkp(std::shared_ptr<Member> changing) {
+    void bkp(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp) {
 
         changing_offsets.clear();
 
         std::cout << "is this each frame for sure ? could keep track of instances" << std::endl;
 
-        find(changing->clone_v, shared_from_this());
+        std::cout << "looking for : " << comp->label << " in " << changing->name << "\n";
+
+        if (changing->clone_v != shared_from_this())
+           find(changing->clone_v, {shared_from_this()});
+
+        if (!changing_offsets.size())
+            changing_offsets = {footprint()};
+        else{
+            if (changing_offsets[0] < footprint()){
+                int o = 0;
+                for (auto m : changing->members) {
+                    if (m->type_v.get() == comp->type_v.get())
+                        break;
+                    else
+                        o += m->footprint_all();
+                }
+                // int s = comp->footprint_all();
+                
+                for (auto &x : changing_offsets) 
+                    x += changing->footprint()-o;
+            }
+        }
 
         std::reverse(changing_offsets.begin(), changing_offsets.end());
 
-        if (!changing_offsets.size())
-            changing_offsets = {0};
+        std::cout << "found " << changing->name << " @ " ;
+        
+        for (auto x : changing_offsets) 
+            std::cout << (unsigned int) x << " , ";
+
+        std::cout << "\n";
 
     }
 
@@ -461,97 +489,79 @@ struct Buffer : Struct {
 
         int diff =  changing->clone_v->size() - changing->size();
 
-        if (diff > 0) { // thus ADDING
-
             int last_cursor = data.size();
 
             data.resize(footprint());
             
             int new_cursor = data.size();
-            
+            int i = 0;//changing_offsets.size()-1;
             for (auto offset : changing_offsets) {
+
+                if (offset > footprint()-1)
+                    return;
             
                 std::cout <<  "---------"  <<  std::endl;
 
                 int segsize = last_cursor - offset;
 
-                new_cursor -= diff + segsize;
+                new_cursor -= segsize;
+
+                if (offset != last_cursor) {
+
+                    std::cout 
+                    
+                    <<  " move1 "  <<  offset
+                    
+                    <<  " to "  <<  last_cursor-(diff*i) 
+
+                    <<  " @ "  <<  new_cursor  
+                    
+                    << std::endl;
+
+                    std::move(data.begin()+offset, data.begin()+last_cursor-(diff*i), data.begin()+new_cursor);
+                    
+                    print();
+
+                    auto changingsize = changing->size();
+                    auto compall = comp->footprint_all();
+                    auto compsize = comp->type_v->footprint();
+                    
+                    print();
+        
+                }
+                
+                new_cursor-=diff;
 
                 std::cout 
                 
-                <<  " move1 "  <<  offset
-                
-                <<  " to "  <<  last_cursor 
-
-                <<  " @ "  <<  new_cursor  
+                <<  " default "  <<  new_cursor
                 
                  << std::endl;
 
-                std::move(data.begin()+offset, data.begin()+last_cursor, data.begin()+new_cursor);
-                
-                print();
+                if (comp->def()) {
 
-                uint32_t x3 = changing->size(); 
-                uint32_t x4 = new_cursor; 
-                uint32_t x5 = x3 + x4; 
-
-                std::cout 
-                <<  " x3: "  <<  x3
-                <<  " x4: "  <<  x4
-                <<  " x5: "  <<  x5
-                << std::endl;
-
-                int sub_cursor = new_cursor + changing->size(); // <----- missing comdiff ? 
-
-                std::cout 
+                    auto q = comp->quantity_v;
+                    if (comp->clone_v)
+                        q = comp->clone_v->quantity_v-q;
+                    for (int i = 0; i < q; i++) {
+                        memcpy(&data[new_cursor]+comp->type_v->size()*i, comp->def(), comp->type_v->size());
+                        print();
+                    }
+                }else
+                    memset(&data[new_cursor], 0, diff);
                 
-                <<  " move2 "  <<  sub_cursor
-                
-                <<  " to "  <<  sub_cursor + segsize  - changing->size() 
-
-                <<  " @ "  <<   sub_cursor + diff   // devrait etre : mo2 11 to 12 @ 12 // comp diff is 1
-                
-                 << std::endl; // il sait pas localiser le debut du deuxieme split ---^
-
-                std::move(data.begin()+sub_cursor, data.begin()+sub_cursor + segsize  - changing->size(), data.begin()+sub_cursor + diff);
-                
-                print();
-
-                std::cout 
-                
-                <<  " default "  <<  sub_cursor
-                
-                 << std::endl;
-
-                if (comp->def())
-                    for (int i = 0; i < comp->quantity_v; i++) 
-                        memcpy(&data[sub_cursor]+comp->type_v->size()*i, comp->def(), comp->type_v->size());
-                else
-                    memset(&data[sub_cursor], 0, diff);
-                
-                print();
+                // print();
 
                 last_cursor-=segsize;
 
+                // i++;
 
             }
 
-            return;
-        
-        }else if (diff <0) { // thus REMOVING
-
-
-            // stdmove
-
-            std::cout << "CACAPITALE\n";
-
-        }
-        
-        data.resize(footprint());
 
     }
 
-    void pre(std::shared_ptr<Member> changing) override { bkp(changing); }
+    void pre(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp) override { bkp(changing,comp); print(); }
 
     void post(std::shared_ptr<Member> changing, std::shared_ptr<Definition> comp) override { remap(changing,comp); }
 
@@ -605,7 +615,7 @@ bool Member::Definition::quantity(int q) {
     changing->clone_v =  found->shared_from_this();
 
     for (auto x :  observers)
-        x->pre(changing);
+        x->pre(changing,shared_from_this());
     
     quantity_v = q;
     
@@ -626,25 +636,50 @@ int main() {
 
     auto buffer = std::make_shared<Buffer>("Buffy");
     
-    auto foo = reg.create("foo");
-    foo->add<uint8_t>("val",1,1,1);
-    auto bar = reg.create("bar");
-    bar->add<uint8_t>("val",2,2,2);
-    auto zee = reg.create("zee");
-    zee->add<uint8_t>("val",3,3,3);
-
-    auto test = reg.create("test");
-    test->add(foo, 2);
-    auto barval = test->add(bar, 2);
-    test->add(zee, 2);
     
-    buffer->add(test, 2);
-
-    // barval->quantity(1);
-
-    test->quantity(barval, 3); // go ds remap
+    buffer->print();
+    auto foo = reg.create("foo");
 
     buffer->print();
+    auto f1 = foo->add<uint8_t>("f1", 1,1,1);
+    buffer->print();
+    f1->type(reg.find<uint8_t>());
+    f1->quantity(4);
+    f1->range(9,9,9);
+
+    buffer->print();
+    auto bar = reg.create("bar");
+    buffer->print();
+    bar->add<uint8_t,2>("b1", 2,2,2);;
+
+    buffer->print();
+    auto zee = reg.create("zee");
+
+    buffer->print();
+    buffer->add(foo, 2, "foo1"); 
+
+    buffer->print();
+    buffer->add(zee, 2, "zee1");
+
+    buffer->print();
+    buffer->add(bar, 2, "bar1");
+
+    buffer->print();
+    foo->add<uint8_t, 3>("f1", 4,4,4);
+
+    buffer->print();
+    zee->add<uint8_t,2>("z1", 123,123,123);
+
+    buffer->print();
+    zee->add<uint8_t>("z2");
+    
+    buffer->print();
+    buffer->add(foo); 
+    
+    buffer->print();
+    buffer->remove("zee1");
+    buffer->print();
+
 
     std::cout <<"DONE\n";
 
