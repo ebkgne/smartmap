@@ -267,33 +267,9 @@ struct Struct : Member {
 
     }
 
-    std::shared_ptr<Definition> remove(std::shared_ptr<Definition> definition) {
+    bool remove(std::shared_ptr<Definition> definition) {
 
-        auto observers = observe();
-        
-        for (auto x :  observers)
-            x->pre(shared_from_this());
-
-        int compoffset = footprint(); // or pos
-
-        int compsize = definition->type_v->footprint();
-
-        auto defval = definition->def();
-
-        std::string cout = this->name+ "[" +std::to_string(footprint()) + "] remove  " + definition->label + "(" + definition->type_v->name + ":" + std::to_string(compsize);
-        if (definition->quantity_v > 1)
-            cout += "*" + std::to_string(definition->quantity_v)  + ":" + std::to_string(definition->footprint_all());
-        cout += ")";
-        std::cout << cout << std::endl;
-
-        std::erase(members,definition);
-
-        for (auto x :   observers)
-            x->post(definition->quantity_v,compoffset,compsize, defval, 1);
-
-        definition->type_v->observers.erase(shared_from_this());
-
-        return definition;
+        return quantity(definition, 0);
 
     }
 
@@ -323,6 +299,9 @@ struct Struct : Member {
         std::cout << cout << std::endl;
         
         int diff = q-definition->quantity_v;
+        if (diff<0) {
+            compoffset+= definition->footprint_all();
+        }
         definition->quantity_v = q;
 
         for (auto x :   observers)
@@ -490,19 +469,19 @@ struct Buffer : Struct {
         auto old_cursor = data.size();
         auto new_cursor = footprint();
 
-        if (!q) {
+        auto comp_fullsize = compsize * diff;
+
+        std::cout << "old_cursor: " << old_cursor << "\n"  ;
+        std::cout << "new_cursor: " << new_cursor << "\n"  ;
+        std::cout << "compoffset: " << compoffset << "\n"  ;
+        std::cout << "diff: " << diff << "\n"  ;
+        std::cout << "compsize: " << compsize << "\n"  ;
+        std::cout << "q: " << q << "\n"  ;
+        std::cout << "comp_fullsize: " << comp_fullsize << "\n"  ;
+
+        if (diff > 0) { // aka ADDING
  
             data.resize(footprint());
-
-            auto comp_fullsize = compsize * diff;
-
-            std::cout << "old_cursor: " << old_cursor << "\n"  ;
-            std::cout << "new_cursor: " << new_cursor << "\n"  ;
-            std::cout << "compoffset: " << compoffset << "\n"  ;
-            std::cout << "diff: " << diff << "\n"  ;
-            std::cout << "compsize: " << compsize << "\n"  ;
-            std::cout << "q: " << q << "\n"  ;
-            std::cout << "comp_fullsize: " << comp_fullsize << "\n"  ;
 
             print();
             
@@ -516,7 +495,7 @@ struct Buffer : Struct {
 
                 auto told_cursor = old_cursor;
 
-                // if (segsize) {
+                if (segsize) {
 
                     old_cursor -= segsize;
 
@@ -534,7 +513,7 @@ struct Buffer : Struct {
 
                     print();
 
-                // }
+                }
 
                 new_cursor -=  comp_fullsize;
 
@@ -553,10 +532,35 @@ struct Buffer : Struct {
                 print();
 
             }
+        
+            return;
+        
+        }else if (diff < 0) { // aka REMOVING
+
+            for (auto offset : changing_offsets) {
+
+                offset+= compoffset;
+
+                int segment = old_cursor - offset ;
+
+                new_cursor-=segment;
+
+                std::cout 
+                <<  " segment "  <<  segment 
+                <<  "- from "  <<  offset 
+                <<  " to "  <<  old_cursor 
+                <<  " @ "  <<  new_cursor
+                << std::endl;
+
+                std::move(data.begin()+offset, data.begin()+old_cursor, data.begin()+new_cursor); 
+
+                old_cursor-= compsize;
+
+            }
+            
+            data.resize(footprint());
+
         }
-
-
-        // data.resize(footprint());
 
      }
 
@@ -614,12 +618,15 @@ int main() {
     buffer->add(test);
     buffer->add(despues);
 
-    std::cout << "############\n";
+    test->quantity(testb,3);
 
     buffer->print();
+    std::cout << "############\n";
+    buffer->print();
 
-    test->quantity(testb,5);
-    // test->remove(testa);
+    test->quantity(testb,1);
+    buffer->print();
+    test->remove(testb);
 
     buffer->print();
 
