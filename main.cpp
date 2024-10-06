@@ -459,10 +459,6 @@ struct Buffer : Struct {
 
     void post(int diff,int compoffset, int compsize, char* def, int q) override { 
 
-        // std::cout << "found "  ;
-        // for (auto x : changing_offsets) 
-        //     std::cout << (unsigned int) (x+compoffset) << " , ";
-        // std::cout << "\n";
 
         auto old_cursor = data.size();
         auto new_cursor = footprint();
@@ -531,6 +527,11 @@ struct Buffer : Struct {
         
         }else if (diff < 0) { // aka REMOVING
 
+            // std::cout << "found "  ;
+            // for (auto x : changing_offsets) 
+            //     std::cout << (unsigned int) (x) << " + "<< (unsigned int) (compoffset) << " = "<< (unsigned int) (x+compoffset) << " , ";
+            // std::cout << "\n";
+
             // std::cout << "old_cursor: " << old_cursor << "\n"  ;
             // std::cout << "new_cursor: " << new_cursor << "\n"  ;
             // std::cout << "compoffset: " << compoffset << "\n"  ;
@@ -539,7 +540,10 @@ struct Buffer : Struct {
             // std::cout << "q: " << q << "\n"  ;
             // std::cout << "diffsize: " << diffsize << "\n"  ;
 
-            changing_offsets.emplace_back(old_cursor);
+            if (changing_offsets.size() == 1 && changing_offsets[0] == old_cursor)
+                changing_offsets = {0};
+            else
+                changing_offsets.emplace_back(old_cursor);
 
             if (changing_offsets.size()) {
 
@@ -555,6 +559,8 @@ struct Buffer : Struct {
 
                 int segment = offset - old_cursor + diffsize ;
 
+                std::move(data.begin()+old_cursor, data.begin()+old_cursor+segment, data.begin()+new_cursor); 
+
                 // std::cout 
                 // <<  "offset "  <<  offset 
                 // <<  " segment "  <<  segment 
@@ -562,8 +568,6 @@ struct Buffer : Struct {
                 // <<  " to "  <<  old_cursor+segment 
                 // <<  " @ "  <<  new_cursor
                 // << std::endl;
-
-                std::move(data.begin()+old_cursor, data.begin()+old_cursor+segment, data.begin()+new_cursor); 
 
                 // print();
 
@@ -603,7 +607,6 @@ int main() {
     // remove
 
     // instance ( aka Member::tracking_counter ?)
-    
     auto buffer = std::make_shared<Buffer>("Buffy");
     
     auto before = reg.create("before");
@@ -616,21 +619,41 @@ int main() {
     auto aa = reg.create("aa");
     aa->add<uint8_t, 2>("A", 1,1,1);
     
+    auto bb = reg.create("bb");
+    bb->add<uint8_t, 2>("B", 2,2,2);
+    
+    auto cc = reg.create("cc");
+    auto cval = cc->add<uint8_t, 2>("C", 3,3,3);
+    
     auto test = reg.create("test");
 
     auto testa = test->add(aa);
+    auto testb = test->add(bb);
+    test->add(cc);
 
     auto bufftest = buffer->add(test, 2);
     buffer->add(despues);
 
+
     std::cout << "############\n";
     buffer->print();
 
     std::cout << "############\n";
+    test->quantity(testb,5);
+    buffer->print();
+
+    std::cout << "############\n";
+    test->quantity(testb,1);
+    buffer->print();
+
+    std::cout << "############\n";
+    test->remove(testb);
+    buffer->print();
+
     buffer->quantity(bufftest,1);
+    std::cout << "############\n";
     buffer->print();
 
-    std::cout << "############\n";
     std::cout << "DONE\n";
 
 }
