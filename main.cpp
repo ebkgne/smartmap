@@ -12,6 +12,8 @@
 
 using TypeIndex = boost::typeindex::type_index;
 
+
+
 void set(TypeIndex id, char* ptr, float val) { 
 
     if (id == typeid(float)) 
@@ -46,27 +48,39 @@ void set(TypeIndex id, char* ptr, float val) {
 
 }
 
-struct Definition;
 
-struct Member : std::enable_shared_from_this<Member>  {
+struct Member_;
+using Member = std::shared_ptr<Member_>;
+
+struct MemberInstance { Member m; int eq = 0; };
+
+using STL = std::vector<MemberInstance>;
+
+struct Member_ : std::enable_shared_from_this<Member_>  {
 
     std::string name;
 
-    std::set<std::shared_ptr<Member>> observers;
+    std::set<Member> observers;
 
-    TypeIndex type_v = typeid(Member);
+    std::map<Member,std::vector<int>> offsets;
 
-    std::shared_ptr<Member> clone_v = nullptr;
+    int size_v = 0;
 
-    struct Definition : std::enable_shared_from_this<Definition>{
+    TypeIndex type_v = typeid(Member_);
+
+    Member clone_v = nullptr;
+
+    struct Definition_;
+    using Definition = std::shared_ptr<Definition_>;
+    struct Definition_ : std::enable_shared_from_this<Definition_>{
         
-        std::shared_ptr<Member> type_v;
+        Member type_v;
         std::string label;
         int quantity_v;
     
-        std::shared_ptr<Definition> clone_v = nullptr;
+        Definition clone_v = nullptr;
         
-        Definition( std::shared_ptr<Member> type, const char* name = nullptr, int q = 1, float from = 0, float to = 0, float def = 0) : label(name?name:type->name), quantity_v(q) {
+        Definition_( Member type, const char* name = nullptr, int q = 1, float from = 0, float to = 0, float def = 0) : label(name?name:type->name), quantity_v(q) {
 
             this->type(type);
 
@@ -79,7 +93,7 @@ struct Member : std::enable_shared_from_this<Member>  {
 
         uint32_t footprint_all() { return type_v->footprint() *  quantity_v ; }
 
-        void type(std::shared_ptr<Member> type) {
+        void type(Member type) {
 
             type_v = type;
             
@@ -132,7 +146,7 @@ struct Member : std::enable_shared_from_this<Member>  {
 
             if (rangedef.size()) return rangedef.data()+(type_v->size()*2);
             
-            if (type_v->type_v == typeid(Member)) {
+            if (type_v->type_v == typeid(Member_)) {
 
                 if (!type_v->size())
                     return nullptr;
@@ -161,11 +175,11 @@ struct Member : std::enable_shared_from_this<Member>  {
 
     };
 
-    std::vector<std::shared_ptr<Definition>> members;
+    std::vector<Definition> members;
     
-    std::shared_ptr<Definition> moving_v = nullptr;
+    Definition moving_v = nullptr;
 
-    virtual ~Member() {
+    virtual ~Member_() {
     
         if (!clone_v)
             for (auto def : members) 
@@ -183,12 +197,12 @@ struct Member : std::enable_shared_from_this<Member>  {
     uint32_t stride() { return 0 ; }
     uint32_t footprint() { return size() + stride() ; }
   
-    virtual void pre(std::shared_ptr<Member> changing, int compoffset) {}
+    virtual void pre(Member changing, int compoffset) {}
     virtual void post(int diff, int compsize, char* def, int q) {}
 
-    std::set<std::shared_ptr<Member>> observe() {
+    std::set<Member> observe() {
 
-        std::set<std::shared_ptr<Member>> out;
+        std::set<Member> out;
 
         if (!observers.size()) 
             out.insert(shared_from_this());
@@ -202,11 +216,13 @@ struct Member : std::enable_shared_from_this<Member>  {
     }
 };
 
-struct Data : Member {
+struct Data_;
+using Data = std::shared_ptr<Data_>;
+struct Data_ : Member_ {
     
     static inline std::map<TypeIndex, int> type_sizes;
 
-    Data(const TypeIndex& type, const char* name)  { 
+    Data_(const TypeIndex& type, const char* name)  { 
 
         type_v = type; 
 
@@ -225,17 +241,19 @@ struct TYPE : TypeIndex {
     
     TYPE() : TypeIndex(typeid(T)) { 
         
-        if (Data::type_sizes.find(typeid(T)) == Data::type_sizes.end())
-            Data::type_sizes[typeid(T)] = sizeof(T);
+        if (Data_::type_sizes.find(typeid(T)) == Data_::type_sizes.end())
+            Data_::type_sizes[typeid(T)] = sizeof(T);
 
         // if (std::is_arithmetic<T>::value) Data::tofloat[typeid(T)] = [&](void* ptr){ return (float)(*(T*)ptr); }; // this wont compile :'( plz hlp
 
     }
 };
 
-struct Struct : Member {
+struct Struct_;
+using Struct = std::shared_ptr<Struct_>;
+struct Struct_ : Member_ {
 
-    std::shared_ptr<Definition> add(std::shared_ptr<Member> type, int quantity = 1, const char* name = nullptr, float from = 0, float to = 0, float def = 0) {
+    Definition add(Member type, int quantity = 1, const char* name = nullptr, float from = 0, float to = 0, float def = 0) {
 
         type->observers.insert(shared_from_this());
 
@@ -246,7 +264,7 @@ struct Struct : Member {
         for (auto x :  observers)
             x->pre(shared_from_this(), compoffset);
         
-        auto definition = std::make_shared<Definition>(type, name, quantity, from, to, def);
+        auto definition = std::make_shared<Definition_>(type, name, quantity, from, to, def);
 
         int compsize = definition->type_v->footprint();
 
@@ -267,13 +285,13 @@ struct Struct : Member {
 
     }
 
-    bool remove(std::shared_ptr<Definition> definition) {
+    bool remove(Definition definition) {
 
         return quantity(definition, 0);
 
     }
 
-    bool quantity(std::shared_ptr<Definition> definition, int q) { // work only adding not removing for now // though this will be in post() normaly by ifelse (diff>0) 
+    bool quantity(Definition definition, int q) { // work only adding not removing for now // though this will be in post() normaly by ifelse (diff>0) 
 
         auto observers = observe(); // necessary ?
 
@@ -312,10 +330,10 @@ struct Struct : Member {
 
     }
 
-    std::shared_ptr<Definition> add(const TypeIndex& type, int quantity, const char* name, float from, float to, float def);
+    Definition add(const TypeIndex& type, int quantity, const char* name, float from, float to, float def);
 
     template <typename T, int q = 1>
-    std::shared_ptr<Definition> add(const char* name, float from = 0, float to = 0, float def = 0) {
+    Definition add(const char* name, float from = 0, float to = 0, float def = 0) {
 
         return add(TYPE<T>(), q, name, from, to, def);
         
@@ -327,19 +345,19 @@ struct Struct : Member {
 
 struct Register {
 
-    std::set<std::shared_ptr<Data>> datatypes;
-    std::set<std::shared_ptr<Struct>> structtypes;
+    std::set<Data> datatypes;
+    std::set<Struct> structtypes;
 
     template <typename T>
-    std::shared_ptr<Data> create(const char* name) {
+    Data create(const char* name) {
 
         return create(TYPE<T>(), name);
         
     }
 
-    std::shared_ptr<Data> create(const TypeIndex& type, const char* name = nullptr) {
+    Data create(const TypeIndex& type, const char* name = nullptr) {
 
-        auto d = std::make_shared<Data>(type, name);
+        auto d = std::make_shared<Data_>(type, name);
 
         // std::cout << "create " << d->quantity_v << " " << d->name << (d->quantity_v>1?"s":"")<<  " " << Type(type).name() << " - " << Type(type).size() << "\n";
 
@@ -350,15 +368,15 @@ struct Register {
     }
 
     template <typename T>
-    std::shared_ptr<Data> create() {
+    Data create() {
 
         return create<T>("");
         
     }
 
-    std::shared_ptr<Struct> create(const char* name) {
+    Struct create(const char* name) {
 
-        auto s = std::make_shared<Struct>();
+        auto s = std::make_shared<Struct_>();
 
         s->name = name;
 
@@ -370,7 +388,7 @@ struct Register {
         
     }
  
-    std::shared_ptr<Member> find(const TypeIndex& type) {
+    Member find(const TypeIndex& type) {
 
         // type.type_info().name()
         for (const auto& x : datatypes) 
@@ -382,24 +400,25 @@ struct Register {
     }
  
     template <typename T>
-    std::shared_ptr<Member> find() {
+    Member find() {
         return find(TYPE<T>());
     }
 
-    std::shared_ptr<Member> changing = nullptr;
+    Member changing = nullptr;
 
 };
 
-static std::string str(std::vector<std::shared_ptr<Member>>& stl) {
+static std::string str(STL& stl) {
 
     std::string out;
 
-    for (auto x : stl) {
+    for (auto it = stl.rbegin(); it != stl.rend(); ++it) {
         
-        out +=  x->name;
-
-        if (x != stl.back()) 
+        if (it != stl.rbegin()) 
             out +=  "::";
+
+        out +=  it->m->name;
+
 
     }
 
@@ -407,7 +426,7 @@ static std::string str(std::vector<std::shared_ptr<Member>>& stl) {
 
 }
 
-struct Buffer : Struct {
+struct Buffer : Struct_ {
 
     Buffer(std::string name = "") { 
         this->name = name;
@@ -416,24 +435,36 @@ struct Buffer : Struct {
     std::vector<char> data = {};
 
     std::vector<uint32_t> changing_offsets;
+    
+    std::vector<STL> instances;
 
-    void find(std::shared_ptr<Member> x, std::vector<std::shared_ptr<Member>> stl , int offset= 0) {
+    void find(Member x, STL in , int offset= 0) { 
 
-        // std::cout <<  str(stl) << " " << offset << "\n";
+        std::cout <<  str(in) << " " << offset << "\n";
 
-        auto m = stl.back();
-        stl.resize(stl.size()+1);
 
-        for (auto def : m->members) {
+        auto inst = in.front();
+        in.insert(in.begin(),{nullptr});
 
-            stl.back() = def->type_v;
+        for (auto def : inst.m->members) {
+
+            in.front().m = def->type_v;
+            
+            def->type_v->size_v = def->type_v->footprint();   
+
+            auto &offsets = def->type_v->offsets[shared_from_this()];
+
+            offsets.resize(def->quantity_v);
             
             for (int i = 0; i < def->quantity_v; i++) {
+                
+                offsets[i] = offset;
 
                 if (def->type_v == x) 
                     changing_offsets.emplace_back(offset);
-
-                find(x,stl,offset);
+                        
+                else
+                    find(x,in,offset);
                 
                 offset+=def->type_v->footprint();
             }
@@ -444,7 +475,7 @@ struct Buffer : Struct {
     }
 
 
-    void pre(std::shared_ptr<Member> changing, int compoffset) override { 
+    void pre(Member changing, int compoffset) override { 
         
         // find offset of each new instance 
         
@@ -453,7 +484,7 @@ struct Buffer : Struct {
         if (changing.get() == this)
             changing_offsets = {footprint()};
         else
-            find(changing,{shared_from_this()}); 
+            find(changing,{{shared_from_this()}}); 
 
         for (int i = 0; i < changing_offsets.size(); i++) 
             changing_offsets[i] += compoffset;
@@ -483,25 +514,25 @@ struct Buffer : Struct {
 
             for (auto offset : changing_offsets) {
 
-                int segsize = std::max(0,(int)old_cursor - (int)offset);
+                int segment = std::max(0,(int)old_cursor - (int)offset);
 
-                auto told_cursor = old_cursor;
+                if (segment) {
 
-                if (segsize) {
+                    auto old_end = old_cursor;
 
-                    old_cursor -= segsize;
+                    old_cursor -= segment;
 
-                    new_cursor -= segsize;
+                    new_cursor -= segment;
 
                     // std::cout 
                     // <<  "- offset "  <<  offset 
-                    // <<  " segsize "  <<  segsize 
+                    // <<  " segment "  <<  segment 
                     // <<  " from "  <<  old_cursor 
-                    // <<  " to "  <<  told_cursor 
+                    // <<  " to "  <<  old_end 
                     // <<  " @ "  <<  new_cursor  
                     // << std::endl;
 
-                    std::move(data.begin()+old_cursor, data.begin()+told_cursor, data.begin()+new_cursor); 
+                    std::move(data.begin()+old_cursor, data.begin()+old_cursor+segment, data.begin()+new_cursor); 
 
                     // print();
 
@@ -591,17 +622,54 @@ struct Buffer : Struct {
 
     }
 
-    Buffer(Buffer& other) : Struct(other), data(other.data) { }
+    Buffer(Buffer& other) : Struct_(other), data(other.data) { }
 
 };
 
 Register reg;
 
-std::shared_ptr<Member::Definition> Struct::add(const TypeIndex& type, int quantity, const char* name, float from, float to, float def) {
+Member_::Definition Struct_::add(const TypeIndex& type, int quantity, const char* name, float from, float to, float def) {
 
     return add(reg.find(type), quantity, name, from, to, def);
 
 }
+
+
+// void each(STL in, int offset= 0) { 
+
+//     auto inst = in.back();
+//     in.resize(in.size()+1);
+
+//     for (auto def : inst.m->members) {
+
+//         in.back().m = def->type_v;
+        
+//         def->type_v->size_v = def->type_v->footprint();   
+
+//         auto &offsets = def->type_v->offsets[shared_from_this()];
+
+//         offsets.resize(def->quantity_v);
+        
+//         for (int i = 0; i < def->quantity_v; i++) {
+            
+//             offsets[i] = offset;
+
+//             if (def->type_v == x) 
+//                 changing_offsets.emplace_back(offset);
+                    
+//             else
+//                 find(x,in,offset,is_first);
+//             if (is_first) {
+//                 std::cout << "ONCE " << str(in) << " " << offset << "\n";
+//                 is_first = false;
+//             }
+//             offset+=def->type_v->footprint();
+//         }
+
+
+//     }
+
+// }
 
 int main() {
 
