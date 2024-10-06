@@ -183,8 +183,8 @@ struct Member : std::enable_shared_from_this<Member>  {
     uint32_t stride() { return 0 ; }
     uint32_t footprint() { return size() + stride() ; }
   
-    virtual void pre(std::shared_ptr<Member> changing) {}
-    virtual void post(int diff,int compoffset, int compsize, char* def, int q) {}
+    virtual void pre(std::shared_ptr<Member> changing, int compoffset) {}
+    virtual void post(int diff, int compsize, char* def, int q) {}
 
     std::set<std::shared_ptr<Member>> observe() {
 
@@ -240,11 +240,11 @@ struct Struct : Member {
         type->observers.insert(shared_from_this());
 
         auto observers = observe();
-        
-        for (auto x :  observers)
-            x->pre(shared_from_this());
 
         int compoffset = footprint(); // or pos
+        
+        for (auto x :  observers)
+            x->pre(shared_from_this(), compoffset);
         
         auto definition = std::make_shared<Definition>(type, name, quantity, from, to, def);
 
@@ -261,7 +261,7 @@ struct Struct : Member {
         members.emplace_back(definition);
 
         for (auto x :   observers)
-            x->post(definition->quantity_v,compoffset,compsize, defval, 0);
+            x->post(definition->quantity_v,compsize, defval, 0);
 
         return definition;
 
@@ -277,9 +277,6 @@ struct Struct : Member {
 
         auto observers = observe(); // necessary ?
 
-        for (auto x :  observers)
-            x->pre(shared_from_this());
-
         int compoffset = 0; bool found = false;
         for (auto m : members) {
             if (m == definition){
@@ -290,6 +287,14 @@ struct Struct : Member {
         if (!found)
             compoffset = 0;
 
+        int diff = q-definition->quantity_v;
+
+        if (diff<0) 
+            compoffset+= definition->footprint_all();
+        
+        for (auto x :  observers)
+            x->pre(shared_from_this(), compoffset);
+
         int compsize = definition->type_v->footprint(); // or before definition->quantity_v = q; ?
 
         auto defval = definition->def();
@@ -297,15 +302,11 @@ struct Struct : Member {
         // std::string cout = this->name+ " resize " + definition->label + " from " + std::to_string(definition->quantity_v) + " to " + std::to_string(q) ;
         // cout += "";
         // std::cout << cout << std::endl;
-        
-        int diff = q-definition->quantity_v;
-        if (diff<0) {
-            compoffset+= definition->footprint_all();
-        }
+
         definition->quantity_v = q;
 
         for (auto x :   observers)
-            x->post(diff,compoffset,compsize, defval, 0);
+            x->post(diff,compsize, defval, 0);
 
         return true;
 
@@ -443,7 +444,7 @@ struct Buffer : Struct {
     }
 
 
-    void pre(std::shared_ptr<Member> changing) override { 
+    void pre(std::shared_ptr<Member> changing, int compoffset) override { 
         
         // find offset of each new instance 
         
@@ -454,10 +455,13 @@ struct Buffer : Struct {
         else
             find(changing,{shared_from_this()}); 
 
+        for (int i = 0; i < changing_offsets.size(); i++) 
+            changing_offsets[i] += compoffset;
+
 
     }
 
-    void post(int diff,int compoffset, int compsize, char* def, int q) override { 
+    void post(int diff, int compsize, char* def, int q) override { 
 
 
         auto old_cursor = data.size();
@@ -478,8 +482,6 @@ struct Buffer : Struct {
             // std::cout << "\n"  ;
 
             for (auto offset : changing_offsets) {
-
-                offset += compoffset;
 
                 int segsize = std::max(0,(int)old_cursor - (int)offset);
 
@@ -547,7 +549,7 @@ struct Buffer : Struct {
 
             if (changing_offsets.size()) {
 
-                old_cursor = changing_offsets.front()+compoffset;
+                old_cursor = changing_offsets.front();
                 new_cursor = old_cursor+diffsize;
                 changing_offsets.erase(changing_offsets.begin());
                 changing_offsets.emplace_back(old_cursor);
@@ -555,7 +557,6 @@ struct Buffer : Struct {
             }
 
             for (auto offset : changing_offsets) {
-                offset+= compoffset;
 
                 int segment = offset - old_cursor + diffsize ;
 
@@ -604,6 +605,8 @@ std::shared_ptr<Member::Definition> Struct::add(const TypeIndex& type, int quant
 
 int main() {
 
+
+
     auto aa = reg.create("aa");
     aa->add<uint8_t>("A", 1,1,1);
     
@@ -643,7 +646,7 @@ int main() {
     trick->add<uint8_t,2>("T", 4,4,4);
     // buffer->print();
     cc->quantity(cval,3);
-    cc->quantity(cval,1);
+    cc->quantity(cval,0);
 
 
     auto dd = reg.create("dd");
@@ -656,3 +659,5 @@ int main() {
     std::cout << "DONE\n";
 
 }
+
+// 1 1 21 122 122 122 122 23 4 4 5 5 5 5 5 5 21 122 122 122 122 23 4 4 5 5 5 5 5 5 2 2 1 1 21 122 122 122 122 23 4 4 5 5 5 5 5 5 21 122 122 122 122 23 4 4 5 5 5 5 5 5 2 2 
