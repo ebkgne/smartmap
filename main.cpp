@@ -252,11 +252,11 @@ struct Struct : Member {
 
         auto defval = definition->def();
 
-        std::string cout = this->name+ "[" +std::to_string(footprint()) + "] add  " + definition->label + "(" + definition->type_v->name + ":" + std::to_string(compsize);
-        if (definition->quantity_v > 1)
-            cout += "*" + std::to_string(definition->quantity_v)  + ":" + std::to_string(definition->footprint_all());
-        cout += ")";
-        std::cout << cout << std::endl;
+        // std::string cout = this->name+ "[" +std::to_string(footprint()) + "] add  " + definition->label + "(" + definition->type_v->name + ":" + std::to_string(compsize);
+        // if (definition->quantity_v > 1)
+        //     cout += "*" + std::to_string(definition->quantity_v)  + ":" + std::to_string(definition->footprint_all());
+        // cout += ")";
+        // std::cout << cout << std::endl;
 
         members.emplace_back(definition);
 
@@ -294,9 +294,9 @@ struct Struct : Member {
 
         auto defval = definition->def();
 
-        std::string cout = this->name+ " resize " + definition->label + " from " + std::to_string(definition->quantity_v) + " to " + std::to_string(q) ;
-        cout += "";
-        std::cout << cout << std::endl;
+        // std::string cout = this->name+ " resize " + definition->label + " from " + std::to_string(definition->quantity_v) + " to " + std::to_string(q) ;
+        // cout += "";
+        // std::cout << cout << std::endl;
         
         int diff = q-definition->quantity_v;
         if (diff<0) {
@@ -453,39 +453,33 @@ struct Buffer : Struct {
             changing_offsets = {footprint()};
         else
             find(changing,{shared_from_this()}); 
-        
-        std::reverse(changing_offsets.begin(), changing_offsets.end());
 
 
     }
 
     void post(int diff,int compoffset, int compsize, char* def, int q) override { 
 
-        std::cout << "found "  ;
-        for (auto x : changing_offsets) 
-            std::cout << (unsigned int) (x+compoffset) << " , ";
-        std::cout << "\n";
+        // std::cout << "found "  ;
+        // for (auto x : changing_offsets) 
+        //     std::cout << (unsigned int) (x+compoffset) << " , ";
+        // std::cout << "\n";
 
         auto old_cursor = data.size();
         auto new_cursor = footprint();
 
-        auto comp_fullsize = compsize * diff;
+        auto diffsize = compsize * diff;
 
-        std::cout << "old_cursor: " << old_cursor << "\n"  ;
-        std::cout << "new_cursor: " << new_cursor << "\n"  ;
-        std::cout << "compoffset: " << compoffset << "\n"  ;
-        std::cout << "diff: " << diff << "\n"  ;
-        std::cout << "compsize: " << compsize << "\n"  ;
-        std::cout << "q: " << q << "\n"  ;
-        std::cout << "comp_fullsize: " << comp_fullsize << "\n"  ;
+
 
         if (diff > 0) { // aka ADDING
+
+            std::reverse(changing_offsets.begin(), changing_offsets.end());
  
             data.resize(footprint());
 
-            print();
+            // print();
             
-            std::cout << "\n"  ;
+            // std::cout << "\n"  ;
 
             for (auto offset : changing_offsets) {
 
@@ -501,35 +495,35 @@ struct Buffer : Struct {
 
                     new_cursor -= segsize;
 
-                    std::cout 
-                    <<  "- offset "  <<  offset 
-                    <<  " segsize "  <<  segsize 
-                    <<  " from "  <<  old_cursor 
-                    <<  " to "  <<  told_cursor 
-                    <<  " @ "  <<  new_cursor  
-                    << std::endl;
+                    // std::cout 
+                    // <<  "- offset "  <<  offset 
+                    // <<  " segsize "  <<  segsize 
+                    // <<  " from "  <<  old_cursor 
+                    // <<  " to "  <<  told_cursor 
+                    // <<  " @ "  <<  new_cursor  
+                    // << std::endl;
 
                     std::move(data.begin()+old_cursor, data.begin()+told_cursor, data.begin()+new_cursor); 
 
-                    print();
+                    // print();
 
                 }
 
-                new_cursor -=  comp_fullsize;
+                new_cursor -=  diffsize;
 
-                std::cout 
-                <<  "- default "  <<  new_cursor
-                <<  " for "  <<  comp_fullsize
-                << std::endl;
+                // std::cout 
+                // <<  "- default "  <<  new_cursor
+                // <<  " for "  <<  diffsize
+                // << std::endl;
             
                 if (def) 
                     for (int i = 0; i < diff; i++) 
                         memcpy(&data[new_cursor]+i*compsize, def, compsize);
 
                 else
-                    memset(&data[new_cursor], 55, comp_fullsize);
+                    memset(&data[new_cursor], 55, diffsize);
 
-                print();
+                // print();
 
             }
         
@@ -537,27 +531,46 @@ struct Buffer : Struct {
         
         }else if (diff < 0) { // aka REMOVING
 
-            for (auto offset : changing_offsets) {
+            // std::cout << "old_cursor: " << old_cursor << "\n"  ;
+            // std::cout << "new_cursor: " << new_cursor << "\n"  ;
+            // std::cout << "compoffset: " << compoffset << "\n"  ;
+            // std::cout << "diff: " << diff << "\n"  ;
+            // std::cout << "compsize: " << compsize << "\n"  ;
+            // std::cout << "q: " << q << "\n"  ;
+            // std::cout << "diffsize: " << diffsize << "\n"  ;
 
-                offset+= compoffset;
+            changing_offsets.emplace_back(old_cursor);
 
-                int segment = old_cursor - offset ;
+            if (changing_offsets.size()) {
 
-                new_cursor-=segment;
-
-                std::cout 
-                <<  " segment "  <<  segment 
-                <<  "- from "  <<  offset 
-                <<  " to "  <<  old_cursor 
-                <<  " @ "  <<  new_cursor
-                << std::endl;
-
-                std::move(data.begin()+offset, data.begin()+old_cursor, data.begin()+new_cursor); 
-
-                old_cursor-= compsize;
+                old_cursor = changing_offsets.front()+compoffset;
+                new_cursor = old_cursor+diffsize;
+                changing_offsets.erase(changing_offsets.begin());
+                changing_offsets.emplace_back(old_cursor);
 
             }
-            
+
+            for (auto offset : changing_offsets) {
+                offset+= compoffset;
+
+                int segment = offset - old_cursor + diffsize ;
+
+                // std::cout 
+                // <<  "offset "  <<  offset 
+                // <<  " segment "  <<  segment 
+                // <<  " from "  <<  old_cursor 
+                // <<  " to "  <<  old_cursor+segment 
+                // <<  " @ "  <<  new_cursor
+                // << std::endl;
+
+                std::move(data.begin()+old_cursor, data.begin()+old_cursor+segment, data.begin()+new_cursor); 
+
+                // print();
+
+                old_cursor = offset;
+                new_cursor += segment;
+            }
+
             data.resize(footprint());
 
         }
@@ -603,33 +616,21 @@ int main() {
     auto aa = reg.create("aa");
     aa->add<uint8_t, 2>("A", 1,1,1);
     
-    auto bb = reg.create("bb");
-    bb->add<uint8_t, 2>("B", 2,2,2);
-    
-    auto cc = reg.create("cc");
-    auto cval = cc->add<uint8_t, 2>("C", 3,3,3);
-    
     auto test = reg.create("test");
 
     auto testa = test->add(aa);
-    auto testb = test->add(bb);
-    test->add(cc);
 
-    buffer->add(test);
+    auto bufftest = buffer->add(test, 2);
     buffer->add(despues);
 
-    test->quantity(testb,3);
-
-    buffer->print();
     std::cout << "############\n";
     buffer->print();
 
-    test->quantity(testb,1);
-    buffer->print();
-    test->remove(testb);
-
+    std::cout << "############\n";
+    buffer->quantity(bufftest,1);
     buffer->print();
 
+    std::cout << "############\n";
     std::cout << "DONE\n";
 
 }
