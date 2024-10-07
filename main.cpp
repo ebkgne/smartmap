@@ -18,7 +18,7 @@ using TypeIndex = boost::typeindex::type_index;
 struct __NAME__ : std::shared_ptr<__NAME__##_> { \
     __NAME__(std::shared_ptr<__NAME__##_> ptr = nullptr) : std::shared_ptr<__NAME__##_>(ptr) {}\
     template <typename... Args>\
-    static __NAME__ create(Args&&... args) { return std::make_shared<__NAME__##_>(std::forward<Args>(args)...); } \
+    static __NAME__ Create(Args&&... args) { return std::make_shared<__NAME__##_>(std::forward<Args>(args)...); } \
  }; \
 struct __NAME__##_
 
@@ -311,7 +311,7 @@ SHAREDSTRUCT(Struct) : Member_ {
         for (auto x :  observers)
             x->pre(shared_from_this(), compoffset);
         
-        auto definition = std::make_shared<Definition_>(type, name, quantity, from, to, def);
+        auto definition = Definition::Create(type, name, quantity, from, to, def);
 
         int compsize = definition->type_v->footprint();
 
@@ -407,7 +407,7 @@ struct Register {
 
     Data create(const TypeIndex& type, const char* name = nullptr) {
 
-        auto d = std::make_shared<Data_>(type, name);
+        auto d = Data::Create(type, name);
 
         // std::cout << "create " << d->quantity_v << " " << d->name << (d->quantity_v>1?"s":"")<<  " " << Type(type).name() << " - " << Type(type).size() << "\n";
 
@@ -426,7 +426,7 @@ struct Register {
 
     Struct create(const char* name) {
 
-        auto s = std::make_shared<Struct_>();
+        auto s = Struct::Create();
 
         s->name = name;
 
@@ -496,7 +496,7 @@ SHAREDSTRUCT(Buffer) : Struct_ {
         Instance inst;
         
         if (!in->size())
-            inst = std::make_shared<Instance_>(std::make_shared<Member_::Definition_>(shared_from_this())); 
+            inst = Instance::Create(Member_::Definition::Create(shared_from_this())); 
 
         else
             inst = in->front();
@@ -504,7 +504,7 @@ SHAREDSTRUCT(Buffer) : Struct_ {
         if (!eq)
             inst->def->/* type_v-> */trig(Event::PRE);
 
-        in->insert(in->begin(),std::make_shared<Instance_>());
+        in->insert(in->begin(),Instance::Create());
 
         for (auto def : inst->def->type_v->members) {
 
@@ -649,19 +649,16 @@ std::set<Member_::STL> Struct_::getSTLS(Definition def, int q) {
 
     std::set<Member_::STL> out;
 
-    auto inst = std::make_shared<Instance>();
-        
-        for (auto observer : observers)     
-            for (auto x :   observer.first->getTop())
-                {
+    auto inst = Instance::Create();
+    
+    for (auto observer : observers)     
+        for (auto x :   observer.first->getTop()) {
 
-                    // blah blah
+            // blah blah
 
-                    std::cout << "############\n";
+            std::cout << "############\n";
 
-
-                }
-
+    }
 
     return out;
 
@@ -698,7 +695,7 @@ int main() {
     test->add(bb, 2);
     test->add(cc, 2,"tcc");
 
-    auto buffer = std::make_shared<Buffer_>("Buffy");
+    auto buffer = Buffer::Create("Buffy");
     buffer->add(test,2);
 
     buffer->print();
