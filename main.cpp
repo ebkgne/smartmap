@@ -193,10 +193,9 @@ struct Member_ : std::enable_shared_from_this<Member_>  {
         
     };
 
-    using STL = std::vector<Instance>;
+    using STL = std::shared_ptr<std::vector<Instance>>;
 
     std::set<STL> instances;
-
     
     virtual ~Member_() {
     
@@ -435,9 +434,9 @@ static std::string str(Member_::STL stl) {
 
     std::string out;
     
-    for (auto it = stl.rbegin(); it != stl.rend(); ++it) {
+    for (auto it = stl->rbegin(); it != stl->rend(); ++it) {
         
-        if (it != stl.rbegin()) 
+        if (it != stl->rbegin()) 
             out +=  "::";
 
         out +=  it->get()->def->label;
@@ -464,24 +463,24 @@ struct Buffer_ : Struct_ {
     
     std::vector<STL> instances;
 
-    void find(Member x, STL in = {}, int offset = 0, int eq = 0) { 
+    void find(Member x, STL in = std::make_shared<std::vector<Instance>>(), int offset = 0, int eq = 0) { 
 
-        Member_::Instance inst;
+        Instance inst;
         
-        if (!in.size())
-            inst = std::make_shared<Instance_>(std::make_shared<Member_::Definition_>(shared_from_this()));
+        if (!in->size())
+            inst = std::make_shared<Instance_>(std::make_shared<Member_::Definition_>(shared_from_this())); 
 
         else
-            inst = in.front();
+            inst = in->front();
 
         if (!eq)
             inst->def->/* type_v-> */trig(Event::PRE);
 
-        in.insert(in.begin(),std::make_shared<Instance_>());
+        in->insert(in->begin(),std::make_shared<Instance_>());
 
         for (auto def : inst->def->type_v->members) {
 
-            in.front()->def = def;
+            in->front()->def = def;
             
             def->type_v->size_v = def->type_v->footprint();   
             
@@ -501,8 +500,8 @@ struct Buffer_ : Struct_ {
                     changing_offsets.emplace_back(offset);
                         
                 else{
-                    in.front()->eq = i;
-                    find(x, in, offset, eq+i);
+                    in->front()->eq = i;
+                    find(x, std::make_shared<std::vector<Instance>>(*in), offset, eq+i);
                 }
 
                 std::cout <<  str(in) << " " << offset << "\n";
@@ -607,13 +606,6 @@ struct Buffer_ : Struct_ {
     }
 
     Buffer_(Buffer_& other) : Struct_(other), data(other.data) { }
-
-    void track(Instance inst) {
-
-        for (auto x : instances){
-            // if (x == inst) return;           
-        }
-    }
 };
 
 
@@ -621,14 +613,14 @@ void Member_::Definition_::track(Buffer buffer) {
 
     // find each way to owners ( supposely one only )
 
-    std::vector<STL> stls = {{}};
+    // std::vector<STL> stls = {};
 
-    std::vector<STL> sstls = {};
-    for (auto x : type_v->observers) {
+    // std::vector<STL> sstls = {};
+    // for (auto x : type_v->observers) {
 
-        sstls.push_back(stls.back());
+    //     // sstls.push_back(std::make_shared<STL>(*stls.back())); 
 
-    }
+    // }
  
     // for (auto x : buffer->instances) 
 
