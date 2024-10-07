@@ -184,7 +184,9 @@ struct Member_ : std::enable_shared_from_this<Member_>  {
     
     Definition moving_v = nullptr;
 
-    struct Instance { 
+    struct Instance_;
+    using Instance = std::shared_ptr<Instance_>;
+    struct Instance_ { 
         
         Definition def; int eq = 0; int offset = 0; 
 
@@ -432,16 +434,16 @@ struct Register {
 static std::string str(Member_::STL stl) {
 
     std::string out;
-
+    
     for (auto it = stl.rbegin(); it != stl.rend(); ++it) {
         
         if (it != stl.rbegin()) 
             out +=  "::";
 
-        out +=  it->def->label;
+        out +=  it->get()->def->label;
 
-        if (it->def->quantity_v > 1)
-            out += "[" + std::to_string(it->eq) + "]";
+        if (it->get()->def->quantity_v > 1)
+            out += "[" + std::to_string(it->get()->eq) + "]";
 
 
     }
@@ -467,19 +469,19 @@ struct Buffer_ : Struct_ {
         Member_::Instance inst;
         
         if (!in.size())
-            inst = {{std::make_shared<Member_::Definition_>(shared_from_this())}};
+            inst = std::make_shared<Instance_>(std::make_shared<Member_::Definition_>(shared_from_this()));
 
         else
             inst = in.front();
 
         if (!eq)
-            inst.def->/* type_v-> */trig(Event::PRE);
+            inst->def->/* type_v-> */trig(Event::PRE);
 
-        in.insert(in.begin(),{nullptr});
+        in.insert(in.begin(),std::make_shared<Instance_>());
 
-        for (auto def : inst.def->type_v->members) {
+        for (auto def : inst->def->type_v->members) {
 
-            in.front().def = def;
+            in.front()->def = def;
             
             def->type_v->size_v = def->type_v->footprint();   
             
@@ -499,7 +501,7 @@ struct Buffer_ : Struct_ {
                     changing_offsets.emplace_back(offset);
                         
                 else{
-                    in.front().eq = i;
+                    in.front()->eq = i;
                     find(x, in, offset, eq+i);
                 }
 
@@ -624,8 +626,8 @@ void Member_::Definition_::track(Buffer buffer) {
     std::vector<STL> sstls = {};
     for (auto x : type_v->observers) {
 
-
         sstls.push_back(stls.back());
+
     }
  
     // for (auto x : buffer->instances) 
@@ -691,7 +693,7 @@ int main() {
 
     buffer->print();
 
-    buffer->track({});
+    // buffer->track({});
 
     std::cout << buffer->size_v << " " << buffer->data.size() << " DONE\n";
 
