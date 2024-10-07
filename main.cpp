@@ -1,5 +1,6 @@
 
 #include <algorithm>
+#include <format>
 #include <iostream>
 #include <string>
 #include <type_traits>
@@ -12,6 +13,14 @@
 
 using TypeIndex = boost::typeindex::type_index;
 
+
+#define SHAREDSTRUCT(__NAME__) struct __NAME__##_ ;\
+struct __NAME__ : std::shared_ptr<__NAME__##_> { \
+    __NAME__(std::shared_ptr<__NAME__##_> ptr = nullptr) : std::shared_ptr<__NAME__##_>(ptr) {}\
+    template <typename... Args>\
+    static __NAME__ create(Args&&... args) { return std::make_shared<__NAME__##_>(std::forward<Args>(args)...); } \
+ }; \
+struct __NAME__##_
 
 
 void set(TypeIndex id, char* ptr, float val) { 
@@ -49,14 +58,7 @@ void set(TypeIndex id, char* ptr, float val) {
 }
 
 
-struct Member_;
-using Member = std::shared_ptr<Member_>;
-
-
-struct Buffer_;
-using Buffer = std::shared_ptr<Buffer_>;
-
-struct Member_ : std::enable_shared_from_this<Member_>  {
+SHAREDSTRUCT(Member) : std::enable_shared_from_this<Member_>  {
 
     std::string name;
 
@@ -87,29 +89,22 @@ struct Member_ : std::enable_shared_from_this<Member_>  {
 
     TypeIndex type_v = typeid(Member_);
 
-    Member clone_v = nullptr;
+    Member clone_v;
 
     enum Event { PRE};
-    struct Definition_;
-    using Definition = std::shared_ptr<Definition_>;
 
-    struct Instance_;
-    using Instance = std::shared_ptr<Instance_>;
-    struct Instance_ { 
-        
-        Definition def; int eq = 0; int offset = 0; 
 
-        
-    };
+    struct Instance;
 
     using STL = std::shared_ptr<std::vector<Instance>>;
-    struct Definition_ : std::enable_shared_from_this<Definition_>{
+    
+    SHAREDSTRUCT(Definition) : std::enable_shared_from_this<Definition_>{
         
         Member type_v;
         std::string label;
         int quantity_v;
     
-        Definition clone_v = nullptr;
+        Definition clone_v;
         
         Definition_( Member type, const char* name = nullptr, int q = 1, float from = 0, float to = 0, float def = 0) : label(name?name:type->name), quantity_v(q) {
 
@@ -133,7 +128,6 @@ struct Member_ : std::enable_shared_from_this<Member_>  {
 
         }
 
-        void track(Buffer buffer, std::vector<STL> stls = {std::make_shared<std::vector<Instance>>()});
 
         bool quantity(int q);
 
@@ -210,9 +204,15 @@ struct Member_ : std::enable_shared_from_this<Member_>  {
 
     };
 
+    SHAREDSTRUCT(Instance) { 
+        
+        Definition def; int eq = 0; int offset = 0; 
+
+    };
+
     std::vector<Definition> members;
     
-    Definition moving_v = nullptr;
+    Definition moving_v;
 
     std::set<STL> instances;
     
@@ -254,12 +254,11 @@ struct Member_ : std::enable_shared_from_this<Member_>  {
 
     }
 
-    std::set<STL> getSTLS(STL  stl = std::make_shared<std::vector<Instance>>());
 };
 
-struct Data_;
-using Data = std::shared_ptr<Data_>;
-struct Data_ : Member_ {
+
+
+SHAREDSTRUCT(Data) : Member_ {
     
     static inline std::map<TypeIndex, int> type_sizes;
 
@@ -278,32 +277,7 @@ struct Data_ : Member_ {
     }
 
 };
-   std::set<Member_::STL> Member_::getSTLS(Member_::STL  stl) {
 
-        std::set<Member_::STL> out;
-
-        // if (!observers.size()) 
-        //     out.insert(shared_from_this());
-        
-        if (observers.size()) {
-            
-            if(dynamic_cast<Data_*>(this))
-                return out;
-
-            for (int i = 1; i < observers.size(); i++) 
-
-                out.insert(std::make_shared<std::vector<Instance>>());
-
-            stl->push_back( std::make_shared<Instance_>(std::make_shared<Definition_>(shared_from_this())));
-        }
-        for (auto observer : observers){     
-            for (auto x :   observer.first->getSTLS(stl))
-                out.insert(x);
-        }
-
-        return out;
-
-    }
 template <typename T>
 struct TYPE : TypeIndex { 
     
@@ -317,10 +291,15 @@ struct TYPE : TypeIndex {
     }
 };
 
-struct Struct_;
-using Struct = std::shared_ptr<Struct_>;
-struct Struct_ : Member_ {
 
+
+
+SHAREDSTRUCT(Struct) : Member_ {
+
+    Definition add(Struct type, int quantity = 1, const char* name = nullptr, float from = 0, float to = 0, float def = 0) {
+        return add(type->shared_from_this(), quantity, name, from, to, def);
+    }
+    
     Definition add(Member type, int quantity = 1, const char* name = nullptr, float from = 0, float to = 0, float def = 0) {
 
         type->addObserver(shared_from_this(),quantity);
@@ -410,7 +389,7 @@ struct Struct_ : Member_ {
         
     }
     
-  
+    std::set<STL> getSTLS(Definition def, int q);
 
 };
 
@@ -464,9 +443,9 @@ struct Register {
         // type.type_info().name()
         for (const auto& x : datatypes) 
             if (x.get()->type_v == type) 
-                return x;
+                return x->shared_from_this();
 
-        return create(type);
+        return create(type)->shared_from_this();
         
     }
  
@@ -475,7 +454,7 @@ struct Register {
         return find(TYPE<T>());
     }
 
-    Member changing = nullptr;
+    Member changing;
 
 };
 
@@ -500,7 +479,7 @@ static std::string str(Member_::STL stl) {
 
 }
 
-struct Buffer_ : Struct_ {
+SHAREDSTRUCT(Buffer) : Struct_ {
 
     Buffer_(std::string name = "") { 
         this->name = name;
@@ -553,7 +532,7 @@ struct Buffer_ : Struct_ {
                     find(x, std::make_shared<std::vector<Instance>>(*in), offset, eq+i);
                 }
 
-                std::cout <<  str(in) << " " << offset << "\n";
+                // std::cout <<  str(in) << " " << offset << "\n";
 
                 offset += def->type_v->size_v;
             }
@@ -658,29 +637,34 @@ struct Buffer_ : Struct_ {
 };
 
 
-void Member_::Definition_::track(Buffer buffer, std::vector<STL> stls) {
-
-    // find each way to owners ( supposely one only )
-
-    ;
-
-    std::vector<STL> sstls;
-
-    for (auto x : type_v->observers) {
-
-        sstls.push_back(std::make_shared<std::vector<Instance>>(*stls.back())); 
-
-    }
- 
-    // for (auto x : buffer->instances) 
-
-}
-
 Register reg;
 
 Member_::Definition Struct_::add(const TypeIndex& type, int quantity, const char* name, float from, float to, float def) {
 
     return add(reg.find(type), quantity, name, from, to, def);
+}
+
+
+std::set<Member_::STL> Struct_::getSTLS(Definition def, int q) {
+
+    std::set<Member_::STL> out;
+
+    auto inst = std::make_shared<Instance>();
+        
+        for (auto observer : observers)     
+            for (auto x :   observer.first->getTop())
+                {
+
+                    // blah blah
+
+                    std::cout << "############\n";
+
+
+                }
+
+
+    return out;
+
 }
 
 int main() {
@@ -712,7 +696,7 @@ int main() {
     test->add(aa, 2);
     test->add(trick, 2);
     test->add(bb, 2);
-    test->add(cc, 2);
+    test->add(cc, 2,"tcc");
 
     auto buffer = std::make_shared<Buffer_>("Buffy");
     buffer->add(test,2);
@@ -731,11 +715,13 @@ int main() {
     auto trickdd = dd->add<uint8_t,3>("D", 5,5,5 );
     trick->add(dd,2);
 
-    trickdd->track(buffer);
+    // trickdd->track(buffer);
 
-    for (auto x : trickdd->type_v->getSTLS()) 
+    for (auto x : trick->getSTLS(trickdd,0)) {
 
-        std::cout << str(x) << " - " << x->size() << "\n";
+        // std::cout << str(x) << " - " << x->size() << "\n";
+    
+    }
 
     buffer->print();
 
