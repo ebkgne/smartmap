@@ -60,7 +60,26 @@ struct Member_ : std::enable_shared_from_this<Member_>  {
 
     std::string name;
 
-    std::set<Member> observers;
+    std::map<Member,int> observers;
+    void addObserver(Member m, int q = 1) {
+
+        if (observers.find(m) == observers.end())
+            observers[m] = q;
+        else
+            observers[m]+=q;
+    }
+    void removeObserver(Member m, int q = 1) {
+
+        if (observers.find(m) == observers.end())
+            std::cout << "\nerore\n\n";
+        
+        observers[m]-=q;
+        
+        if (observers[m] < 1)   
+            observers.erase(m);
+
+    }
+
 
     std::map<Member,std::vector<int>> offsets;
 
@@ -73,6 +92,17 @@ struct Member_ : std::enable_shared_from_this<Member_>  {
     enum Event { PRE};
     struct Definition_;
     using Definition = std::shared_ptr<Definition_>;
+
+    struct Instance_;
+    using Instance = std::shared_ptr<Instance_>;
+    struct Instance_ { 
+        
+        Definition def; int eq = 0; int offset = 0; 
+
+        
+    };
+
+    using STL = std::shared_ptr<std::vector<Instance>>;
     struct Definition_ : std::enable_shared_from_this<Definition_>{
         
         Member type_v;
@@ -103,7 +133,7 @@ struct Member_ : std::enable_shared_from_this<Member_>  {
 
         }
 
-        void track(Buffer buffer);
+        void track(Buffer buffer, std::vector<STL> stls = {std::make_shared<std::vector<Instance>>()});
 
         bool quantity(int q);
 
@@ -184,17 +214,6 @@ struct Member_ : std::enable_shared_from_this<Member_>  {
     
     Definition moving_v = nullptr;
 
-    struct Instance_;
-    using Instance = std::shared_ptr<Instance_>;
-    struct Instance_ { 
-        
-        Definition def; int eq = 0; int offset = 0; 
-
-        
-    };
-
-    using STL = std::shared_ptr<std::vector<Instance>>;
-
     std::set<STL> instances;
     
     virtual ~Member_() {
@@ -220,7 +239,7 @@ struct Member_ : std::enable_shared_from_this<Member_>  {
     virtual void pre(Member changing, int compoffset) {}
     virtual void post(int diff, int compsize, char* def, int q) {}
 
-    std::set<Member> observe() {
+    std::set<Member> getTop() {
 
         std::set<Member> out;
 
@@ -228,12 +247,14 @@ struct Member_ : std::enable_shared_from_this<Member_>  {
             out.insert(shared_from_this());
         
         for (auto observer : observers)     
-            for (auto x :   observer->observe())
+            for (auto x :   observer.first->getTop())
                 out.insert(x);
 
         return out;
 
     }
+
+    std::set<STL> getSTLS(STL  stl = std::make_shared<std::vector<Instance>>());
 };
 
 struct Data_;
@@ -257,7 +278,32 @@ struct Data_ : Member_ {
     }
 
 };
+   std::set<Member_::STL> Member_::getSTLS(Member_::STL  stl) {
 
+        std::set<Member_::STL> out;
+
+        // if (!observers.size()) 
+        //     out.insert(shared_from_this());
+        
+        if (observers.size()) {
+            
+            if(dynamic_cast<Data_*>(this))
+                return out;
+
+            for (int i = 1; i < observers.size(); i++) 
+
+                out.insert(std::make_shared<std::vector<Instance>>());
+
+            stl->push_back( std::make_shared<Instance_>(std::make_shared<Definition_>(shared_from_this())));
+        }
+        for (auto observer : observers){     
+            for (auto x :   observer.first->getSTLS(stl))
+                out.insert(x);
+        }
+
+        return out;
+
+    }
 template <typename T>
 struct TYPE : TypeIndex { 
     
@@ -277,9 +323,9 @@ struct Struct_ : Member_ {
 
     Definition add(Member type, int quantity = 1, const char* name = nullptr, float from = 0, float to = 0, float def = 0) {
 
-        type->observers.insert(shared_from_this());
+        type->addObserver(shared_from_this(),quantity);
 
-        auto observers = observe();
+        auto observers = getTop();
 
         int compoffset = footprint(); // or pos
         
@@ -315,7 +361,7 @@ struct Struct_ : Member_ {
 
     bool quantity(Definition definition, int q) { // work only adding not removing for now // though this will be in post() normaly by ifelse (diff>0) 
 
-        auto observers = observe(); // necessary ?
+        auto observers = getTop(); // necessary ?
 
         int compoffset = 0; bool found = false;
         for (auto m : members) {
@@ -329,9 +375,12 @@ struct Struct_ : Member_ {
 
         int diff = q-definition->quantity_v;
 
-        if (diff<0) 
+        if (diff<0) {
             compoffset+= definition->footprint_all();
-        
+
+            definition->type_v->addObserver(shared_from_this(),diff);
+        }else
+            definition->type_v->removeObserver(shared_from_this(),std::abs(diff));
         for (auto x :  observers)
             x->pre(shared_from_this(), compoffset);
 
@@ -609,18 +658,19 @@ struct Buffer_ : Struct_ {
 };
 
 
-void Member_::Definition_::track(Buffer buffer) {
+void Member_::Definition_::track(Buffer buffer, std::vector<STL> stls) {
 
     // find each way to owners ( supposely one only )
 
-    // std::vector<STL> stls = {};
+    ;
 
-    // std::vector<STL> sstls = {};
-    // for (auto x : type_v->observers) {
+    std::vector<STL> sstls;
 
-    //     // sstls.push_back(std::make_shared<STL>(*stls.back())); 
+    for (auto x : type_v->observers) {
 
-    // }
+        sstls.push_back(std::make_shared<std::vector<Instance>>(*stls.back())); 
+
+    }
  
     // for (auto x : buffer->instances) 
 
@@ -678,10 +728,14 @@ int main() {
 
 
     auto dd = reg.create("dd");
-    auto trickdd = dd->add<uint8_t,3>("D", 5,5,5);
+    auto trickdd = dd->add<uint8_t,3>("D", 5,5,5 );
     trick->add(dd,2);
 
     trickdd->track(buffer);
+
+    for (auto x : trickdd->type_v->getSTLS()) 
+
+        std::cout << str(x) << " - " << x->size() << "\n";
 
     buffer->print();
 
