@@ -1,36 +1,161 @@
 
 #include "member.hpp"
+#include <memory>
+
+void Buffer_::Instance_::calc_offset() {
+
+    // for (auto x : *list) 
+    int offset = 0;
+
+    // for (int i = 0; i < list.size()-2; i++) 
+    //     for (auto def : list[i+1]->def->type_v->members) {
+            
+    //         if (def == list[i]->def)
+    //             break;
+            
+    //         offset += def->footprint_all();
+        
+    //     }
 
 
-std::vector<STL> Member_::getSTLS(STL stl, int q) {
 
-    std::vector<STL> out;
+}
+
+std::vector<Instance> Member_::getInstances(Instance inst, int q) {
+
+    std::vector<Instance> out;
 
     int i = 0;
 
+    std::cout << inst->elements.back()->def->label << " " << inst->offset << "\n";
+
     if (!observers.size()) {// faster than dynacastbuffer?
 
-        out.push_back(STL::Create(*stl));
+        inst->owner = shared_from_this();
+        out.push_back(inst);
         
         return out;
     }
 
-    stl->emplace_back(Instance::Create());
+    inst->elements.emplace_back(Element::Create());
 
     for (auto observer : observers) {
-        
-        for (auto def : observer.first->members) 
+        int offset = inst->offset;
+        for (auto def : observer.first->members) {
             if (def->type_v.get() == this) {
 
-                stl->back()->def = def;
+                inst->elements.back()->def = def;
+                inst->offset = offset;
 
-                for (auto stl_ : observer.first->getSTLS(stl,0)) {
+                for (auto stl_ : observer.first->getInstances(Instance::Create(inst),0)) {
                     out.push_back(stl_);
 
                 }
             }
-    
+            offset += def->footprint_all();
+        }
         i++;
+    }
+
+    return out;
+
+}
+
+
+auto nulld = Definition::Create(reg->create("null"));
+
+void print(Instance in, Definition x = nulld) { 
+
+    auto inst = in->elements.front();
+
+    in->elements.insert(in->elements.begin(),Element::Create());
+    for (auto def : inst->def->type_v->members) {
+
+        in->elements.front()->def = def;
+        
+        def->type_v->size_v = def->type_v->footprint();   
+
+        for (int i = 0; i < def->quantity_v; i++) {
+                    
+            in->elements.front()->eq = i;
+            print(Instance::Create(in), x);
+    
+            if (x == nulld || x == def)
+                std::cout <<  Buffer_::str(in) << " " << in->offset << "\n";
+
+            in->offset += def->type_v->size_v;
+        }
+
+    }
+
+    // in->offset = 0;
+
+}
+
+std::string str2(Instance inst) {
+
+    std::string out;
+
+    if (inst->owner)
+        out =  inst->owner->name+"::";
+    
+    for (auto it = inst->elements.rbegin(); it != inst->elements.rend(); ++it) {
+        
+
+        out +=  it->get()->def->label;
+
+        if (it->get()->def->quantity_v > 1)
+            out += "[" + std::to_string(it->get()->eq) + "]";
+
+        out += "::";
+
+
+    }
+
+    if (out.length())
+        out = out.substr(0,out.length()-2);
+
+    return out;
+
+}
+
+
+std::vector<Instance> getInstances2(Member x, Instance inst = Instance::Create()) {
+
+    std::vector<Instance> out;
+    
+    // std::cout << inst->elements.back()->def->label << " " << inst->offset << "\n";
+
+    std::cout << x->name << "\n";
+
+    Buffer_* buff = dynamic_cast<Buffer_*>(x->shared_from_this().get());
+
+    if (buff){
+
+
+        inst->owner = x;
+        out.push_back(inst);
+        
+        
+    }
+
+    for (auto observer : x->observers) { // find definitions
+
+        for (auto def : observer.first->members) {
+
+            if (def->type_v == x) {
+
+                auto ninst = Instance::Create(inst);
+                ninst->elements.emplace_back(Element::Create(def));
+
+                std::cout << def->label << "\n";
+                
+                for (auto inst : getInstances2(observer.first, ninst)) 
+                    out.push_back(inst); // push front
+
+            }
+
+        }
     }
 
     return out;
@@ -39,77 +164,79 @@ std::vector<STL> Member_::getSTLS(STL stl, int q) {
 
 int main() {
 
-    auto aa = reg.create("aa");
-    aa->add<uint8_t>("A", 1,1,1);
+    struct Foo {};
     
-    auto bb = reg.create("bb");
-    bb->add<uint8_t>("B", 2,2,2);
+    auto f1 = std::make_shared<Foo>();
+    auto a1 = Buffer::Create("kouta");
+
+    std::shared_ptr<Member_> a4 = a1;
+    Member a5 = a1->shared_from_this();
+    auto a2 = a4.get();
+    Member_* a3 = a2;
+    auto x1 = dynamic_cast<Member_*>(a2);
+    auto x2 = dynamic_cast<Member_*>(a3);
+    auto x3 = dynamic_cast<Buffer_*>(a2);
+    auto x4 = dynamic_cast<Buffer_*>(a3);
+    auto x5 = dynamic_cast<Buffer_*>(a5.get());
+    Buffer_* x6 = dynamic_cast<Buffer_*>(a5.get());
+
+
+
+
+
+    auto test = reg->create("test");
+    test->add<uint8_t,2>("offset2", 2,2,2 );
+    auto target = test->add<uint8_t,2>("targetos", 3,3,3 );
+
+
+    auto buffer1 = Definition::Create(Buffer::Create("Buffuno")->shared_from_this());
+    buffer1->add<uint8_t,4>("offset", 1,1,1 );
+    buffer1->add(test, 1 , "test1");
+    buffer1->add(test, 1 , "test11");
     
-    auto cc = reg.create("cc");
-    auto cval = cc->add<uint8_t>("C", 3,3,3);
-    
-    auto trick = reg.create("trick");
+    auto buffer2 = Definition::Create(Buffer::Create("Buffdos")->shared_from_this());
+    buffer2->add(test, 1 , "test2");
+    buffer2->add(test, 1 , "test22");
 
-    auto t1 = reg.create("t1");
-    t1->add<uint8_t>("B", 21,21,21);
-    trick->add(t1);
-    auto t2 = reg.create("t2");
-    auto t22 = reg.create("t22");
-    t22->add<uint8_t,2>("B", 122,122,122);
-    t2->add(t22,2);
-    trick->add(t2);
-    auto t3 = reg.create("t3");
-    t3->add<uint8_t>("B", 23,23,23);
-    trick->add(t3);
 
-    auto test = reg.create("test");
-    test->add(aa, 2);
-    test->add(trick, 2);
-    test->add(bb, 2);
-    test->add(cc, 2,"tcc");
 
-    auto buffer = Buffer::Create("Buffy");
-    buffer->add(test,2);
 
-    buffer->print();
+    Buffer_* x7 = dynamic_cast<Buffer_*>(buffer2->type_v.get());
 
+
+    // std::cout << "############\n";
+    // print( Instance::Create(buffer2));
+    // std::cout << "############\n";
+    // print( Instance::Create(buffer2), target);
+    // std::cout << "############\n";
+    // print( Instance::Create(buffer1));
+    // std::cout << "############\n";
+
+    // on veut 2 6 3 7 en ordre wesh bfs
+
+    // finding up the hierarchy nto ok
+    auto uc = target->type_v;
     std::cout << "############\n";
+    auto xxx = getInstances2(uc); // forx obs recurse ()
+    std::cout << "############\n";
+    for (auto x : xxx) {
 
-    trick->add<uint8_t,2>("T", 4,4,4);
-    // buffer->print();
-    cc->quantity(cval,3);
-    cc->quantity(cval,0);
-
-
-    auto dd = reg.create("dd");
-    auto ddin = reg.create("ddin");
-    dd->add(ddin,1,"DDIN");
-    auto trickdd = ddin->add<uint8_t,3>("D", 5,5,5 );
-    trick->add(dd,2);
-
-    // trickdd->track(buffer);
-
-    ;
-
-    auto buffer2 = Buffer::Create("Buffdos");
-    auto trickdos = reg.create("trickdos");
-    buffer2->add(trickdos);
-    trickdos->add(test);
-
-    auto bubuff = Instance::Create(Definition::Create(buffer->shared_from_this()));
-
-    for (auto x : ddin->getSTLS(STL::Create({Instance::Create(trickdd)}),0)) {
-
-        std::cout << str(x) << " - " << x->size() << "\n";
+        std::cout << str2(x) << " - " << x->offset << "\n";
     
     }
+    
+    // // finding down the hierarchy ok 
+    // std::cout << "############\n";
+    //     Instance::Create(buffer1)->findBF(target); // maake return list // seee in old version
 
-    buffer->print();
 
-    // buffer->track({});
-
-    std::cout << buffer->size_v << " " << buffer->data.size() << " DONE\n";
-
+    // std::cout << "############\n";
+        std::cout << "DONE" << "\n";
 }
+
+
+// in findbfs should return instance
+
+// buff need to be def, on a dit buffer is not a Buffer , buffer is a def(Buffer)
 
 // 1 1 21 122 122 122 122 23 4 4 5 5 5 5 5 5 21 122 122 122 122 23 4 4 5 5 5 5 5 5 2 2 1 1 21 122 122 122 122 23 4 4 5 5 5 5 5 5 21 122 122 122 122 23 4 4 5 5 5 5 5 5 2 2 
